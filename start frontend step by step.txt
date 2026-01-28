@@ -1,0 +1,10 @@
+npm create vite@latest . -- --template react
+npm install
+npm i
+
+npm create vite@latest - Runs Vite's project scaffolding tool
+. - Create the project here (current folder), don't make a new subfolder
+--template react - Use the React template
+
+using tailwind css:
+npm install -D tailwindcss postcss autoprefixer

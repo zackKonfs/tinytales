@@ -1,0 +1,153 @@
+.tt-hero {
+  padding: 0rem 0 0rem;
+}
+
+.tt-title {
+  font-family: "Baloo 2", cursive;
+  font-size: clamp(8rem, 11vw, 7rem);
+  color: #1c7a6e;
+  margin-bottom: 0.75rem;
+  transform: translateY(30px);
+}
+
+/* Banner area now becomes the illustration stage */
+.tt-banner {
+  position: relative;
+  margin: 2rem auto 0;
+  height: 360px;
+  max-width: 960px;
+}
+
+/* generic rules for all images in the hero */
+.tt-banner img {
+  position: absolute;
+  user-select: none;
+  pointer-events: none;
+}
+
+/* individual elements */
+
+.tt-moon {
+  top: -100px;
+  left: 12%;
+  width: 120px;
+}
+
+.tt-cloud-1 {
+  top: 0px;
+  left: 7%;
+  width: 140px;
+}
+
+.tt-cloud-2 {
+  top: -90px;
+  right: 8%;
+  width: 180px;
+}
+
+.tt-star-1 {
+  top: -20px;
+  left: 25%;
+  width: 36px;
+}
+
+.tt-star-2 {
+  top: 30px;
+  right: 18%;
+  width: 36px;
+}
+
+.tt-star-3 {
+  top: -30px;
+  right: 35%;
+  width: 36px;
+}
+
+.tt-star-4 {
+  top: -120px;
+  right: 25%;
+  width: 36px;
+}
+
+.tt-grass {
+  bottom: 60px;
+  left: 13%;
+  width: 60px;
+}
+
+.tt-stone {
+  bottom: 70px;
+  right: 28%;
+  width: 50px;
+}
+
+.tt-kids {
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 400px;
+}
+
+.tt-rabbit {
+  bottom: 50px;
+  left: 16%;
+  width: 110px;
+}
+
+.tt-snail {
+  bottom: 35px;
+  left: 26%;
+  width: 70px;
+}
+
+.tt-bird {
+  bottom: 50px;
+  right: 20%;
+  width: 120px;
+}
+
+/* Responsive tweaks for hero only */
+
+@media (max-width: 576px) {
+  .tt-banner {
+    height: 200px;
+  }
+
+  .tt-kids {
+    width: 220px;
+  }
+}
+
+@media (max-width: 992px) {
+  .tt-moon,
+  .tt-cloud-1,
+  .tt-cloud-2,
+  .tt-star-1,
+  .tt-star-2,
+  .tt-star-3,
+  .tt-star-4,
+  .tt-grass,
+  .tt-stone,
+  .tt-rabbit,
+  .tt-snail,
+  .tt-bird {
+    display: none;
+  }
+
+  .tt-banner {
+    height: 240px;
+  }
+
+  .tt-kids {
+    position: relative;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 260px;
+  }
+
+  .tt-title {
+    font-size: clamp(3rem, 8vw, 3.8rem);
+    transform: translateY(10px);
+  }
+}
