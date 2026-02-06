@@ -3,7 +3,7 @@ import express from 'express';
 import cors from "cors";
 import entriesRoutes from "./routes/entries.js";
 import authRoutes from "./routes/auth.js";
-
+import meRoutes from "./routes/me.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000; // Use environment variable or default to 5000
@@ -11,6 +11,7 @@ const PORT = process.env.PORT || 5000; // Use environment variable or default to
 app.use(cors({origin: "http://localhost:5173"})); // Vite frontend dev server
 app.use(express.json()); // Middleware to parse JSON bodies
 app.use("/api/auth", authRoutes); // Use auth routes for /api/auth
+app.use("/api", meRoutes); // Use me routes for /api/me
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, message: "Backend is running" });

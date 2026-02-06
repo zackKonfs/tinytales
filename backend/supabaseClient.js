@@ -9,8 +9,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-if (!supabaseServiceKey) {
-  throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY in environment variables.");
-}
+// if (!supabaseServiceKey) {
+//   throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY in environment variables.");
+// }
 
-export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+// export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);

@@ -1,6 +1,8 @@
 import EnterPage from "../components/EnterPage";
 import LoginModal from "../components/LoginModal";
 import YourTales from "../components/YourTales";
+import Devpanel from "../components/Devpanel";
+
 
 const PAGES = {
   entry: EnterPage,
@@ -37,6 +39,8 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
           onLoginSuccess={handleLoginSuccess}
         />
       )}
+      {/* 🔧 DEV ONLY */}
+      <Devpanel />
     </main>
   );
 }
