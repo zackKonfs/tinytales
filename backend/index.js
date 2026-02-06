@@ -1,17 +1,21 @@
 import "dotenv/config";
 import express from 'express';
-import cors from 'cors';
+import cors from "cors";
 import entriesRoutes from "./routes/entries.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000; // Use environment variable or default to 5000
 
-app.use(cors()); // Enable CORS for all routes
+app.use(cors({origin: "http://localhost:5173"})); // Vite frontend dev server
 app.use(express.json()); // Middleware to parse JSON bodies
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, message: "Backend is running" });
 }); // Health check endpoint
+
+app.get("/api/ping", (req, res) => {
+  res.json({ ok: true, message: "backend reachable" });
+}); // Simple ping endpoint
 
 app.post("/api/echo", (req, res) => {
   res.json({ youSent: req.body });
