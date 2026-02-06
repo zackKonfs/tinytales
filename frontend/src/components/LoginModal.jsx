@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { saveSession } from "../auth/session";
+
 
 export default function LoginModal({ onClose, onLoginSuccess }) {
   const [mode, setMode] = useState("login");
@@ -15,29 +17,55 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [onClose]);
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError("");
 
-    if (!username.trim()) {  // Basic validation use (!username || !password) later on
+    // Basic validation
+    if (!username.trim() || !password) {
       setError("Please enter username and password.");
       return;
     }
 
+    // Register mode not wired yet (we keep your UI, but show message)
     if (mode === "register") {
-        if (!password) {
-            setError("Please enter a password.");
-            return;
-        }
-        if (password !== confirmPassword) {
-            setError("Passwords do not match.");
-            return;
-        }
+      if (password !== confirmPassword) {
+        setError("Passwords do not match.");
+        return;
+      }
+      setError("Register not connected yet. Please use Login first.");
+      return;
     }
 
+    // LOGIN via backend
+    try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: username.trim(), // <-- for now we treat Username as Email
+          password,
+        }),
+      });
 
-    onLoginSuccess({ username: username.trim() });
+      const data = await res.json();
+
+      if (!data.ok) {
+        setError(data.message || "Login failed.");
+        return;
+      }
+
+      // ✅ Save tokens + user into localStorage
+      saveSession({ user: data.user, session: data.session });
+
+      // ✅ Tell parent component login is successful
+      onLoginSuccess({ user: data.user });
+
+    } catch (err) {
+      setError(err.message || "Network error.");
+    }
   }
+  
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">

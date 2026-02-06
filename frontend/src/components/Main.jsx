@@ -21,14 +21,11 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
     },
   };
 
-  function handleLoginSuccess(user) {
-    console.log("Logged in user:", user);
-    setUsername(user.username);
+  function handleLoginSuccess(payload) {
+    console.log("Logged in user:", payload);
+    setUsername(payload.user.username);
     setShowLogin(false);
-    setCheckPage("yourtales"); // ✅ This is the navigation
-
-    // Later, go to YourTales:
-    // setCheckPage("yourtales");
+    setCheckPage("yourtales");
   }
 
   return (

@@ -36,21 +36,32 @@ export default function App() {
       };
     }, []);
 
-    const loginTestUser = async () => {
-      setLoginMsg("Logging in...");
+const loginTestUser = async () => {
+  setLoginMsg("Logging in via backend...");
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: "test3@tinytales.com",
-        password: "12345",
+  try {
+      const res = await fetch("http://localhost:5000/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "test3@tinytales.com",
+          password: "12345",
+        }),
       });
 
-      if (error) {
-        setLoginMsg("❌ " + error.message);
+      const data = await res.json();
+
+      if (!data.ok) {
+        setLoginMsg("❌ " + data.message);
         return;
       }
 
       setLoginMsg("✅ Logged in: " + data.user.email);
-    };
+    } catch (e) {
+      setLoginMsg("❌ " + e.message);
+    }
+  };
+
 
 
 
