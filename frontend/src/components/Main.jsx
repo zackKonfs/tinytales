@@ -2,7 +2,7 @@ import EnterPage from "../components/EnterPage";
 import LoginModal from "../components/LoginModal";
 import YourTales from "../components/YourTales";
 import Devpanel from "../components/Devpanel";
-import { loadSession } from "../auth/session";
+import { loadSession, clearSession } from "../auth/session";
 import { useEffect } from "react";
 
 
@@ -19,6 +19,7 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
       yourtales: {
         username,
         onLogout: () => {
+        clearSession();
         setUsername("");
         setCheckPage("entry");
       },
