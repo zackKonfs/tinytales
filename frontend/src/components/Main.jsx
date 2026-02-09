@@ -2,6 +2,8 @@ import EnterPage from "../components/EnterPage";
 import LoginModal from "../components/LoginModal";
 import YourTales from "../components/YourTales";
 import Devpanel from "../components/Devpanel";
+import { loadSession } from "../auth/session";
+import { useEffect } from "react";
 
 
 const PAGES = {
@@ -25,10 +27,20 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
 
   function handleLoginSuccess(payload) {
     console.log("Logged in user:", payload);
-    setUsername(payload.user.username);
+    setUsername(payload.user.email);
     setShowLogin(false);
     setCheckPage("yourtales");
   }
+
+  useEffect(() => {
+    const saved = loadSession();
+
+    if (saved?.user?.email) { // auto-login if session found
+      setUsername(saved.user.email);
+      setCheckPage("yourtales");
+    }
+  }, []); // [] to run only once on mount
+
 
   return (
     <main>
