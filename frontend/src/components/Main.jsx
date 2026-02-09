@@ -4,6 +4,7 @@ import YourTales from "../components/YourTales";
 import Devpanel from "../components/Devpanel";
 import { loadSession, clearSession } from "../auth/session";
 import { useEffect } from "react";
+import { apiFetch } from "../api/client";
 
 
 const PAGES = {
@@ -34,13 +35,37 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
   }
 
   useEffect(() => {
-    const saved = loadSession();
+    async function bootAuth() {
+      const saved = loadSession();
 
-    if (saved?.user?.email) { // auto-login if session found
-      setUsername(saved.user.email);
-      setCheckPage("yourtales");
+      // No saved session → stay at entry
+      if (!saved?.user?.email) return;
+
+      try {
+        // Ask backend to verify token
+        const res = await apiFetch("/api/me");
+
+        if (!res.ok) {
+          // token invalid/expired
+          clearSession();
+          setUsername("");
+          setCheckPage("entry");
+          return;
+        }
+
+        // token valid → restore UI
+        setUsername(saved.user.email);
+        setCheckPage("yourtales");
+      } catch (e) {
+        // backend down / network error → treat as logged out
+        clearSession();
+        setUsername("");
+        setCheckPage("entry");
+      }
     }
-  }, []); // [] to run only once on mount
+
+    bootAuth();
+  }, []);
 
 
   return (
