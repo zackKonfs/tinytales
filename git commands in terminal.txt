@@ -1,0 +1,84 @@
+git status
+git add .
+git commit -m "your message here"
+git push origin main
+👉 This is the only workflow you need for now.
+
+
+
+
+git status
+
+What this does
+Shows which files were: modified added deleted
+
+Tells you what Git is currently tracking
+
+When to use
+✅ Always run this before committing
+Think of it as: “What did I change?”
+
+
+
+git add .
+What this does
+Stages all current changes for the next commit
+
+The . means “everything in this folder”
+
+When to use
+✅ After you finish a logical piece of work
+(e.g. created folders, finished a feature, fixed a bug)
+
+💡 Beginner-friendly rule:
+Use git add . until you’re more advanced.
+
+
+
+
+git commit -m "feat: add backend folder structure"
+What this does
+Creates a permanent snapshot of your work
+
+Saved locally on your computer
+
+Message explains what you did
+
+When to use
+✅ Whenever you complete:
+
+a feature
+
+a fix
+
+a refactor
+
+a setup step
+
+Good commit message examples
+chore: add frontend and backend folders
+
+feat: initialize express server
+
+style: improve mobile layout
+
+fix: correct calendar date bug
+
+
+
+
+git push origin main
+What this does
+Uploads your local commits to GitHub
+
+Updates your online portfolio repo
+
+When to use
+✅ After committing
+Think of it as: “Backup + publish my progress”
+
+
+
+testing
+test3@tinytales.com
+12345

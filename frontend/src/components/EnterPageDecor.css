@@ -1,0 +1,149 @@
+.page-decor {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* decorations won't block clicks */
+  z-index: 0;
+}
+
+.page-decor .decor {
+  position: absolute;
+  display: none;
+}
+
+/* TALES variant */
+.page-decor--tales .decor--moon { display: block; top: 20px; left: 15%; width: 120px; }
+
+.page-decor--tales .decor--cloud2 { display: block; top: 40px; right: 14%; width: 140px; }
+.page-decor--tales .decor--cloud1 { display: block; top: 100px; left: 10%; width: 150px; }
+.page-decor--tales .decor--cloud3 { display: block; top: -10px; right: 35%; width: 100px; }
+
+.page-decor--tales .decor--star1 { display: block; top: 20px; left: 85%; width: 40px; }
+.page-decor--tales .decor--star2 { display: block; top: 20px; left: 40%; width: 30px; }
+.page-decor--tales .decor--star3 { display: block; top: 30px; left: 50%; width: 40px; }
+.page-decor--tales .decor--star4 { display: block; top: 80px; left: 70%; width: 30px; }
+
+.page-decor--tales .decor--grass1 { display: block; bottom: 110px; left: 13%; width: 60px; }
+.page-decor--tales .decor--grass2 { display: block; bottom: 160px; left: 19%; width: 40px; }
+.page-decor--tales .decor--grass3 { display: block; bottom: 165px; right: 19%; width: 40px; }
+
+.page-decor--tales .decor--stone1 { display: block; bottom: 140px; left: 18%; width: 50px; }
+.page-decor--tales .decor--stone2 { display: block; bottom: 170px; right: 23%; width: 30px; }
+.page-decor--tales .decor--stone3 { display: block; bottom: 120px; right: 18%; width: 80px; }
+
+.page-decor--tales .decor--snail { display: block; bottom: 100px; right: 21%; width: 90px; transform: scaleX(-1); }
+.page-decor--tales .decor--bird  { display: block; bottom: 110px; left: 23%; width: 90px; transform: scaleX(-1); }
+
+
+
+/* ====== STORYTIME variant ====== */
+.page-decor--story .decor--moon { display: block; top: 60px; left: 15%; width: 120px; }
+
+.page-decor--story .decor--star1 { display: block; top: 60px; left: 85%; width: 40px; }
+.page-decor--story .decor--star2 { display: block; top: 60px; left: 40%; width: 30px; }
+.page-decor--story .decor--star3 { display: block; top: 40px; left: 50%; width: 40px; }
+.page-decor--story .decor--star4 { display: block; top: 120px; left: 70%; width: 30px; }
+
+.page-decor--story .decor--cloud1 { display: block; top: 80px; right: 14%; width: 140px; }
+.page-decor--story .decor--cloud2 { display: block; top: 140px; left: 10%; width: 150px; }
+.page-decor--story .decor--cloud3 { display: block; top: 30px; right: 35%; width: 100px; }
+
+.page-decor--story .decor--grass1 { display: block; bottom: 70px; left: 13%; width: 60px; }
+.page-decor--story .decor--grass2 { display: block; bottom: 120px; left: 19%; width: 40px; }
+.page-decor--story .decor--grass3 { display: block; bottom: 125px; right: 14%; width: 40px; }
+
+.page-decor--story .decor--stone1 { display: block; bottom: 100px; left: 18%; width: 50px; }
+.page-decor--story .decor--stone2 { display: block; bottom: 130px; right: 18%; width: 30px; }
+.page-decor--story .decor--stone3 { display: block; bottom: 50px; right: 13%; width: 80px; }
+
+.page-decor--story .decor--rabbit { display: block; bottom: 40px; left: 8%; width: 90px; }
+
+/* ===== ENTER PAGE variant ===== */
+.page-decor--enter .decor--moon { display: block; top: -100px; left: 12%; width: 120px; }
+.page-decor--enter .decor--cloud1 { display: block; top: 0px; left: 7%; width: 140px; }
+.page-decor--enter .decor--cloud2 { display: block; top: -90px; right: 8%; width: 180px; }
+.page-decor--enter .decor--star1 { display: block; top: -20px; left: 25%; width: 36px; }
+.page-decor--enter .decor--star2 { display: block; top: 30px; right: 18%; width: 36px; }
+.page-decor--enter .decor--star3 { display: block; top: -30px; right: 35%; width: 36px; }
+.page-decor--enter .decor--star4 { display: block; top: -120px; right: 25%; width: 36px; }
+.page-decor--enter .decor--grass1 { display: block; bottom: 60px; left: 13%; width: 60px; }
+.page-decor--enter .decor--stone1 { display: block; bottom: 70px; right: 28%; width: 50px; }
+.page-decor--enter .decor--boygirl { display: block; bottom: 20px; left: 50%; transform: translateX(-50%); width: 400px; z-index: 2; }
+.page-decor--enter .decor--rabbit { display: block; bottom: 50px; left: 16%; width: 110px; }
+.page-decor--enter .decor--snail { display: block; bottom: 35px; left: 26%; width: 70px; z-index: 3; }
+.page-decor--enter .decor--bird { display: block; bottom: 50px; right: 20%; width: 120px; }
+
+/* ===== CONTACT variant ===== */
+.page-decor--contact .decor--moon { display:block; top:60px; left:15%; width:120px; }
+
+.page-decor--contact .decor--star1 { display:block; top:60px; left:85%; width:40px; }
+.page-decor--contact .decor--star2 { display:block; top:60px; left:40%; width:30px; }
+.page-decor--contact .decor--star3 { display:block; top:90px; left:50%; width:40px; }
+.page-decor--contact .decor--star4 { display:block; top:120px; left:70%; width:30px; }
+
+.page-decor--contact .decor--cloud1 { display:block; top:80px; right:14%; width:140px; }
+.page-decor--contact .decor--cloud2 { display:block; top:140px; left:10%; width:150px; }
+.page-decor--contact .decor--cloud3 { display:block; top:80px; right:35%; width:100px; }
+
+.page-decor--contact .decor--grass1 { display:block; bottom:70px; left:13%; width:60px; }
+.page-decor--contact .decor--grass2 { display:block; bottom:120px; left:19%; width:40px; }
+.page-decor--contact .decor--grass3 { display:block; bottom:125px; right:19%; width:40px; }
+
+.page-decor--contact .decor--stone1 { display:block; bottom:100px; left:18%; width:50px; }
+.page-decor--contact .decor--stone2 { display:block; bottom:130px; right:23%; width:30px; }
+.page-decor--contact .decor--stone3 { display:block; bottom:80px; right:18%; width:80px; }
+
+.page-decor--contact .decor--snail { display:block; bottom:60px; right:21%; width:90px; transform:scaleX(-1); }
+
+/* ===== ABOUT variant ===== */
+.page-decor--about .decor--moon { display:block; top:60px; left:12%; width:120px; }
+
+.page-decor--about .decor--star1 { display:block; top:60px; left:85%; width:40px; }
+.page-decor--about .decor--star2 { display:block; top:60px; left:40%; width:30px; }
+.page-decor--about .decor--star3 { display:block; top:90px; left:50%; width:40px; }
+.page-decor--about .decor--star4 { display:block; top:120px; left:70%; width:30px; }
+
+.page-decor--about .decor--cloud1 { display:block; top:80px; right:14%; width:140px; }
+.page-decor--about .decor--cloud2 { display:block; top:140px; left:10%; width:150px; }
+.page-decor--about .decor--cloud3 { display:block; top:80px; right:35%; width:100px; }
+
+.page-decor--about .decor--grass1 { display:block; bottom:-630px; left:10%; width:60px; }
+.page-decor--about .decor--grass2 { display:block; bottom:-580px; left:16%; width:40px; }
+.page-decor--about .decor--grass3 { display:block; bottom:-575px; right:16%; width:40px; }
+
+.page-decor--about .decor--stone1 { display:block; bottom:-600px; left:15%; width:50px; }
+.page-decor--about .decor--stone2 { display:block; bottom:-570px; right:20%; width:30px; }
+.page-decor--about .decor--stone3 { display:block; bottom:-620px; right:15%; width:80px; }
+
+.page-decor--about .decor--rabbit { display:block; bottom:-640px; right:8%; width:110px; transform:scaleX(-1); }
+
+
+
+/* keep your existing responsive choice */
+@media (max-width: 992px) {
+  .page-decor--enter .decor--moon,
+  .page-decor--enter .decor--cloud1,
+  .page-decor--enter .decor--cloud2,
+  .page-decor--enter .decor--star1,
+  .page-decor--enter .decor--star2,
+  .page-decor--enter .decor--star3,
+  .page-decor--enter .decor--star4,
+  .page-decor--enter .decor--grass1,
+  .page-decor--enter .decor--stone1,
+  .page-decor--enter .decor--rabbit,
+  .page-decor--enter .decor--snail,
+  .page-decor--enter .decor--bird,
+  .page-decor--tales,
+  .page-decor--about,
+  .page-decor--contact,
+  .page-decor--story {
+    display: none;
+  }
+
+  .page-decor--enter .decor--boygirl {
+    display: block;
+    width: 300px;
+    bottom: 0px;
+  }
+}
+
+

@@ -1,0 +1,46 @@
+npm init -y
+
+npm i package-name → production dependency (needed when your app runs)
+
+npm i -D package-name → dev dependency (only needed for development, testing, building, etc.)
+
+What is CORS?
+CORS stands for Cross-Origin Resource Sharing. It's a security mechanism that controls which websites can access your server.
+
+Why you need it:
+By default, if your frontend (running on localhost:3000) tries to request data from your backend (running on localhost:5000), the browser blocks it because they're on different ports/origins. CORS allows your backend to say "it's OK, I trust this frontend."
+
+npm init -y
+npm i express cors
+npm i -D nodemon
+
+change type to "module"
+
+
+
+add below in jason:
+"scripts": {
+  "dev": "nodemon index.js",
+  "start": "node index.js"
+}
+
+What each does:
+
+npm run dev → Runs your app with nodemon, which auto-restarts when you change files. Use this while developing.
+npm start → Runs your app normally with node. Use this when deploying to production.
+Example workflow:
+
+While coding: npm run dev → Edit a file → App auto-restarts instantly (you see changes right away)
+When live: npm start → App runs once without restarts (no unnecessary reloads)
+Why have both:
+
+Development is iterative—you want auto-reload to see changes immediately
+Production is stable—you don't want restarts eating resources or interrupting users
+Convention:
+npm start is a standard that hosting platforms recognize automatically. When you deploy to platforms like Heroku or Render, they look for and run npm start by default.
+
+
+use for developer:
+npm run dev
+use for production:
+npm start
