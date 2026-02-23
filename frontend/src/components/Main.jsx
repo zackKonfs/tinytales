@@ -1,19 +1,22 @@
 import EnterPage from "../components/EnterPage";
 import LoginModal from "../components/LoginModal";
 import YourTales from "../components/YourTales";
-import Devpanel from "../components/Devpanel";
+import AccountPickerModal from "../components/AccountPickerModal";
+import ParentAccount from "../components/ParentAccount";
 import { loadSession, clearSession } from "../auth/session";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { apiFetch } from "../api/client";
 
 
 const PAGES = {
   entry: EnterPage,
   yourtales: YourTales,
+  parent: ParentAccount,
 };
 
 export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin, username, setUsername }) {
   const Page = PAGES[checkPage] ?? EnterPage;
+  const [showAccountPicker, setShowAccountPicker] = useState(false);
 
   const pageProps = {
     entry: { setLogin: () => setShowLogin(true) },
@@ -25,39 +28,46 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
         setCheckPage("entry");
       },
     },
+
+    parent: {
+      parentName: "Zack",
+      onLogout: () => {
+        clearSession();
+        setUsername("");
+        setCheckPage("entry");
+      },
+      onCreateChild: () => console.log("create child clicked"),
+      onSelectChild: (child) => console.log("child selected:", child),
+    },
   };
 
   function handleLoginSuccess(payload) {
     console.log("Logged in user:", payload);
     setUsername(payload.user.email);
     setShowLogin(false);
-    setCheckPage("yourtales");
+    setShowAccountPicker(true);
+    setCheckPage("entry");
   }
 
-  useEffect(() => {
+ useEffect(() => {
     async function bootAuth() {
       const saved = loadSession();
 
-      // No saved session → stay at entry
       if (!saved?.user?.email) return;
 
       try {
-        // Ask backend to verify token
         const res = await apiFetch("/api/me");
 
         if (!res.ok) {
-          // token invalid/expired
           clearSession();
           setUsername("");
           setCheckPage("entry");
           return;
         }
 
-        // token valid → restore UI
         setUsername(saved.user.email);
         setCheckPage("yourtales");
-      } catch (e) {
-        // backend down / network error → treat as logged out
+      } catch {
         clearSession();
         setUsername("");
         setCheckPage("entry");
@@ -65,7 +75,8 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
     }
 
     bootAuth();
-  }, []);
+  }, [setCheckPage, setUsername]);
+
 
 
   return (
@@ -77,8 +88,18 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
           onLoginSuccess={handleLoginSuccess}
         />
       )}
-      {/* 🔧 DEV ONLY */}
-      <Devpanel />
+
+      <AccountPickerModal
+        open={showAccountPicker}
+        parentName="Zack (Parent)"
+        childrenNames={[]}
+        onSelectParent={() => {
+          setShowAccountPicker(false);
+          setCheckPage("parent");
+        }}
+        onSelectChild={(name) => console.log("child clicked:", name)}
+        onClose={() => setShowAccountPicker(false)}
+      />
     </main>
   );
 }
