@@ -14,6 +14,42 @@ export default function ParentAccount({
     const [childrenList, setChildrenList] = useState([]);
     const [loadingChildren, setLoadingChildren] = useState(false);
     const [childrenError, setChildrenError] = useState("");
+    const [parentAvatarUrl, setParentAvatarUrl] = useState("");
+
+    async function handleParentAvatarChange(e) {
+            const file = e.target.files?.[0];
+            if (!file) return;
+
+            try {
+                const MAX = 1.5 * 1024 * 1024; // 1.5MB
+                if (file.size > MAX) {
+                alert("Image must be smaller than 1.5MB");
+                return;
+                }
+
+                const form = new FormData();
+                form.append("avatar", file);
+
+                const res = await apiFetch("/api/avatar/parent", {
+                method: "POST",
+                body: form,
+                });
+
+                const json = await res.json().catch(() => ({}));
+                console.log("avatar upload status:", res.status, json);
+
+                if (!res.ok) {
+                alert(json.error || json.message || `Upload failed (HTTP ${res.status})`);
+                return;
+                }
+
+                // ✅ cache-bust so browser doesn’t show old cached avatar
+                setParentAvatarUrl(`${json.avatar_url}?v=${Date.now()}`);
+            } finally {
+                // ✅ always reset file input so picking again always triggers onChange
+                e.target.value = "";
+            }
+        }
 
     useEffect(() => {
         async function loadChildren() {
@@ -22,7 +58,7 @@ export default function ParentAccount({
 
             try {
             const res = await apiFetch("/api/children");
-            const json = await res.json();
+            const json = await res.json().catch(() => ({}));
 
             if (!res.ok) {
                 setChildrenError(json.error || json.message || "Failed to load children");
@@ -31,7 +67,7 @@ export default function ParentAccount({
             }
 
             setChildrenList(json.children ?? []);
-            } catch (e) {
+            } catch {
             setChildrenError("Network error loading children");
             setChildrenList([]);
             } finally {
@@ -40,6 +76,17 @@ export default function ParentAccount({
         }
 
     loadChildren();
+
+    async function loadParentProfile() {
+            const res = await apiFetch("/api/parent/profile");
+            const json = await res.json();
+
+            if (res.ok && json.ok) {
+                setParentAvatarUrl(json.profile.avatar_url || "");
+            }
+        }
+
+    loadParentProfile();
     }, []);
 
   return (
@@ -48,6 +95,54 @@ export default function ParentAccount({
             <header style={styles.header}>
                 <div>
                 <h1 style={styles.title}>Parent Account</h1>
+                <div style={{ position: "relative", width: 56, height: 56 }}>
+                    <div
+                        style={{
+                        width: 56,
+                        height: 56,
+                        borderRadius: "50%",
+                        background: "#eee",
+                        overflow: "hidden",
+                        }}
+                    >
+                        {parentAvatarUrl && (
+                        <img
+                            src={parentAvatarUrl}
+                            alt="parent avatar"
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            onError={() => setParentAvatarUrl("")}
+                        />
+                        )}
+                    </div>
+
+                    <label
+                        style={{
+                            position: "absolute",
+                            bottom: -2,
+                            right: -10,
+                            width: 24,
+                            height: 24,
+                            borderRadius: "50%",
+                            background: "#ffffff",
+                            border: "1px solid #ddd",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+                            zIndex: 5,
+                        }}
+                        title="Change avatar"
+                    >
+                        <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: "none" }}
+                        onChange={handleParentAvatarChange}
+                        />
+                        ✏️
+                    </label>
+                </div>
                 <div style={styles.greeting}>Hello, {parentName} (Parent)</div>
                 </div>
 
@@ -77,14 +172,15 @@ export default function ParentAccount({
 
                 <section style={styles.grid}>
                     {childrenList.map((c) => (
-                    <button
+                    <div
                         key={c.id}
                         style={styles.card}
                         onClick={() => onSelectChild?.(c)}
                     >
                         <div style={styles.thumb} />
                         <div style={styles.childName}>{c.name}</div>
-                    </button>
+                        <button style={styles.deleteBtn}> 🗑 </button>
+                    </div>
                     ))}
                 </section>
             </div>
@@ -182,6 +278,7 @@ const styles = {
     textAlign: "center",
     cursor: "pointer",
     boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+    position: "relative",
   },
   thumb: {
     width: "100%",
@@ -219,4 +316,14 @@ const styles = {
         marginLeft: "auto",
         marginRight: "auto",
     },
+    deleteBtn: {
+        position: "absolute",
+        bottom: 8,
+        right: 8,
+        border: "none",
+        background: "white",
+        borderRadius: "50%",
+        cursor: "pointer",
+        padding: 6,
+    }
 };

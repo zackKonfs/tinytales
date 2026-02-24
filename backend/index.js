@@ -5,6 +5,8 @@ import entriesRoutes from "./routes/entries.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import childrenRoutes from "./routes/children.js";
+import avatarRoutes from "./routes/avatar.js";
+import parentRoutes from "./routes/parent.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000; // Use environment variable or default to 5000
@@ -14,6 +16,8 @@ app.use(express.json()); // Middleware to parse JSON bodies
 app.use("/api/auth", authRoutes); // Use auth routes for /api/auth
 app.use("/api", meRoutes); // Use me routes for /api/me
 app.use("/api", childrenRoutes);
+app.use("/api", avatarRoutes);
+app.use("/api", parentRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, message: "Backend is running" });

@@ -17,6 +17,7 @@ const PAGES = {
 export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin, username, setUsername }) {
   const Page = PAGES[checkPage] ?? EnterPage;
   const [showAccountPicker, setShowAccountPicker] = useState(false);
+  const [isBooting, setIsBooting] = useState(true);
 
   const pageProps = {
     entry: { setLogin: () => setShowLogin(true) },
@@ -53,7 +54,10 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
     async function bootAuth() {
       const saved = loadSession();
 
-      if (!saved?.user?.email) return;
+     if (!saved?.user?.email) {
+        setIsBooting(false);
+        return;
+      }
 
       try {
         const res = await apiFetch("/api/me");
@@ -62,22 +66,27 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
           clearSession();
           setUsername("");
           setCheckPage("entry");
+          setIsBooting(false);
           return;
         }
 
         setUsername(saved.user.email);
-        setCheckPage("yourtales");
+        setCheckPage("parent");
+        setIsBooting(false);
       } catch {
         clearSession();
         setUsername("");
         setCheckPage("entry");
+        setIsBooting(false);
       }
     }
 
     bootAuth();
   }, [setCheckPage, setUsername]);
 
-
+  if (isBooting) {
+    return <div style={{ padding: 24, opacity: 0.7 }}>Loading...</div>;
+  }
 
   return (
     <main>
