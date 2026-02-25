@@ -15,6 +15,18 @@ export default function ParentAccount({
     const [loadingChildren, setLoadingChildren] = useState(false);
     const [childrenError, setChildrenError] = useState("");
     const [parentAvatarUrl, setParentAvatarUrl] = useState("");
+    const [confirmChild, setConfirmChild] = useState(null); // will store the child object {id,name,...}
+    const [successMsg, setSuccessMsg] = useState("");       // for success popup text
+
+    function getInitials(name = "") {
+        const trimmed = name.trim();
+        if (!trimmed) return "?";
+
+        const parts = trimmed.split(/\s+/).filter(Boolean);
+        const first = parts[0]?.[0] || "";
+        const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+        return (first + last).toUpperCase();
+    }
 
     async function handleParentAvatarChange(e) {
             const file = e.target.files?.[0];
@@ -50,6 +62,26 @@ export default function ParentAccount({
                 e.target.value = "";
             }
         }
+
+    async function setChildActive(childId, isActive) {
+        const res = await apiFetch(`/api/children/${childId}/active`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ is_active: isActive }),
+        });
+
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+            alert(json.message || json.error || `Failed (${res.status})`);
+            return;
+        }
+        if (!isActive) {
+            setChildrenList(prev => prev.filter(c => c.id !== childId));
+        } else {
+            // if you ever show disabled list later, you'd update in place instead
+        }
+    }
 
     useEffect(() => {
         async function loadChildren() {
@@ -177,19 +209,30 @@ export default function ParentAccount({
                         style={styles.card}
                         onClick={() => onSelectChild?.(c)}
                     >
-                        <div style={styles.thumb} />
-                        <div style={styles.childName}>{c.name}</div>
-                        <button style={styles.deleteBtn}> 🗑 </button>
+                    <div style={styles.thumb}>
+                        <div style={styles.thumbText}>{getInitials(c.name)}</div>
+                    </div>
+                    <div style={styles.childName}>{c.name}</div>
+                    <button
+                    style={styles.deleteBtn}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmChild(c); // store the selected child
+                    }}
+                    title="Disable child"
+                    >
+                        🗑 
+                    </button>
                     </div>
                     ))}
                 </section>
             </div>
         </div>
 
-        <CreateChildModal
-            open={showCreateChild}
-            onClose={() => setShowCreateChild(false)}
-            onCreate={ async (payload) => {
+        {showCreateChild && (
+            <CreateChildModal
+                onClose={() => setShowCreateChild(false)}
+                onCreate={async (payload) => {
                 const res = await apiFetch("/api/children", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -205,8 +248,63 @@ export default function ParentAccount({
 
                 setChildrenList((prev) => [json.child, ...prev]);
                 setShowCreateChild(false);
-            }}
-        />
+                }}
+            />
+        )}
+
+        {confirmChild && (
+            <div style={styles.modalBackdrop}>
+                <div style={styles.modalBox}>
+                <div style={styles.modalTitle}>Confirm</div>
+                <div style={styles.modalText}>
+                    Are you sure you want to delete this account?
+                </div>
+
+                <div style={styles.modalActions}>
+                    <button
+                    style={styles.modalCancelBtn}
+                    onClick={() => setConfirmChild(null)}
+                    >
+                    Cancel
+                    </button>
+
+                    <button
+                    style={styles.modalDangerBtn}
+                    onClick={async () => {
+                          try {
+                                const child = confirmChild; // store it first
+                                await setChildActive(child.id, false); // disable (soft delete)
+                                setConfirmChild(null); // close confirm modal
+                                setSuccessMsg(`${child.name}'s account deleted`);
+                            } catch (e) {
+                                alert(e?.message || "Failed to delete child");
+                            }
+                    }}
+                    >
+                    Delete
+                    </button>
+                </div>
+                </div>
+            </div>
+        )}
+
+        {successMsg && (
+            <div style={styles.modalBackdrop}>
+                <div style={styles.modalBox}>
+                <div style={styles.modalTitle}>Done</div>
+                <div style={styles.modalText}>{successMsg}</div>
+
+                <div style={styles.modalActions}>
+                    <button
+                    style={styles.modalDangerBtn}
+                    onClick={() => setSuccessMsg("")}
+                    >
+                    OK
+                    </button>
+                </div>
+                </div>
+            </div>
+        )}
     </div>
   );
 }
@@ -275,18 +373,27 @@ const styles = {
     background: "rgba(255,255,255,0.75)",
     borderRadius: 18,
     padding: 16,
-    textAlign: "center",
+    // textAlign: "center",
     cursor: "pointer",
     boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
     position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center", 
+    gap: 12,
   },
-  thumb: {
-    width: "100%",
-    aspectRatio: "1 / 1",
-    borderRadius: 16,
-    background: "rgba(0,0,0,0.06)",
-    marginBottom: 10,
-  },
+    thumb: {
+        width: 180,
+        height: 180,
+        borderRadius: 16,
+        background: "linear-gradient(135deg, #e6f2ef, #d4e6e1)",
+        border: "2px solid #e0d7cc",
+        boxShadow: "0 6px 18px rgba(0,0,0,0.08)",
+        overflow: "hidden",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+    },
   childName: {
     fontSize: 18,
     fontWeight: 700,
@@ -325,5 +432,70 @@ const styles = {
         borderRadius: "50%",
         cursor: "pointer",
         padding: 6,
-    }
+    },
+    modalBackdrop: {
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.35)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+    },
+    modalBox: {
+        width: "min(520px, 92vw)",
+        background: "rgba(255,255,255,0.92)",
+        borderRadius: 18,
+        padding: "18px 18px 16px",
+        boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+        backdropFilter: "blur(6px)",
+        border: "1px solid rgba(0,0,0,0.08)",
+    },
+    modalTitle: {
+        fontSize: 18,
+        fontWeight: 800,
+        color: "#245a52",
+        marginBottom: 8,
+    },
+    modalText: {
+        fontSize: 14,
+        color: "#333",
+        opacity: 0.9,
+        marginBottom: 14,
+    },
+    modalActions: {
+        display: "flex",
+        justifyContent: "flex-end",
+        gap: 10,
+    },
+    modalCancelBtn: {
+        padding: "10px 14px",
+        borderRadius: 12,
+        border: "1px solid rgba(0,0,0,0.12)",
+        background: "#f6efe7",
+        color: "#333",
+        fontWeight: 700,
+        cursor: "pointer",
+    },
+    modalDangerBtn: {
+        padding: "10px 14px",
+        borderRadius: 12,
+        border: "1px solid rgba(0,0,0,0.12)",
+        background: "#f0a64a",
+        color: "#fff",
+        fontWeight: 800,
+        cursor: "pointer",
+    },
+    thumbText: {
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 48,
+        fontWeight: 900,
+        color: "#245a52",
+        letterSpacing: 2,
+        userSelect: "none",
+    },
 };

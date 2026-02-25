@@ -1,6 +1,7 @@
 import express from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "../supabaseAdmin.js";
 
 const router = express.Router();
 
@@ -27,7 +28,8 @@ router.get("/children", requireAuth, async (req, res) => {
 
     const { data, error } = await supabase
       .from("children")
-      .select("id, name, date_of_birth, gender, created_at")
+      .select("*")
+      .eq("parent_user_id", req.user.id)
       .eq("is_active", true)
       .order("created_at", { ascending: false });
 
@@ -42,10 +44,7 @@ router.get("/children", requireAuth, async (req, res) => {
 // POST /api/children
 router.post("/children", requireAuth, async (req, res) => {
   try {
-    console.log("req.user:", req.user);
-    console.log("POST /api/children body:", req.body);
-    console.log("POST /api/children user:", req.user?.id);
-    const supabase = supabaseForRequest(req);
+    const supabase = supabaseAdmin;
 
     const { name, date_of_birth, gender } = req.body;
 
@@ -53,8 +52,6 @@ router.post("/children", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Missing required fields." });
     }
 
-    // parent_user_id should be set by you OR via RLS default.
-    // We'll set it explicitly.
     const { data, error } = await supabase
       .from("children")
       .insert([
@@ -75,6 +72,35 @@ router.post("/children", requireAuth, async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: "Server error" });
   }
+});
+
+router.patch("/children/:id/active", requireAuth, async (req, res) => {
+    try {
+        const supabase = supabaseAdmin;
+        const childId = req.params.id;
+        const parentId = req.user.id;
+        const { is_active } = req.body;
+
+        if (typeof is_active !== "boolean") {
+            return res.status(400).json({ ok: false, message: "is_active must be boolean" });
+        }
+
+        const { data, error } = await supabase
+            .from("children")
+            .update({ is_active })
+            .eq("id", childId)
+            .eq("parent_user_id", parentId)
+            .select("id,is_active");
+
+        if (error) return res.status(400).json({ ok: false, message: error.message });
+        if (!data || data.length === 0) {
+            return res.status(404).json({ ok: false, message: "Child not found" });
+        }
+
+        return res.json({ ok: true, child: data[0] });
+        } catch (e) {
+            return res.status(500).json({ ok: false, message: "Server error" });
+    }
 });
 
 export default router;

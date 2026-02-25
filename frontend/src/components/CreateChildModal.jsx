@@ -1,11 +1,9 @@
 import { useState } from "react";
 
-export default function CreateChildModal({ open, onClose, onCreate }) {
+export default function CreateChildModal({ onClose, onCreate }) {
   const [name, setName] = useState("");
   const [dob, setDob] = useState("");
   const [gender, setGender] = useState("");
-
-  if (!open) return null;
 
   function handleSubmit(e) {
     e.preventDefault();
