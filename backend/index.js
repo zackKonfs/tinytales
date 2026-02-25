@@ -7,6 +7,7 @@ import meRoutes from "./routes/me.js";
 import childrenRoutes from "./routes/children.js";
 import avatarRoutes from "./routes/avatar.js";
 import parentRoutes from "./routes/parent.js";
+import entriesRouter from "./routes/entries.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000; // Use environment variable or default to 5000

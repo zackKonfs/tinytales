@@ -20,10 +20,28 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
   const [isBooting, setIsBooting] = useState(true);
   const [selectedChild, setSelectedChild] = useState(null);
   const [childrenNames, setChildrenNames] = useState([]);
+  const [childrenList, setChildrenList] = useState([]);
 
   const pageProps = {
     entry: { setLogin: () => setShowLogin(true) },
-    child: { username, child: selectedChild },
+    child: {
+      username,
+      child: selectedChild,
+
+      onGoParent: () => {
+        localStorage.removeItem("tt_selectedChild");
+        setSelectedChild(null);
+        setCheckPage("parent");
+      },
+
+      onLogout: () => {
+        clearSession();
+        localStorage.removeItem("tt_selectedChild");
+        setSelectedChild(null);
+        setUsername("");
+        setCheckPage("entry");
+      },
+    },
     parent: {
       parentName: "Zack",
       onLogout: () => {
@@ -32,7 +50,11 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
         setCheckPage("entry");
       },
       onCreateChild: () => console.log("create child clicked"),
-      onSelectChild: (child) => console.log("child selected:", child),
+      onSelectChild: (child) => {
+        setSelectedChild(child);
+        localStorage.setItem("tt_selectedChild", JSON.stringify(child));
+        setCheckPage("child");
+      },
     },
   };
 
@@ -113,9 +135,14 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
         if (!alive) return;
 
         if (res.ok) {
-          const names = (json.children ?? []).map((c) => c.name);
+          const children = json.children ?? [];
+
+          setChildrenList(children);
+
+          const names = children.map((c) => c.name);
           setChildrenNames(names);
         } else {
+          setChildrenList([]);
           setChildrenNames([]);
         }
       } catch {
@@ -154,7 +181,7 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
           setCheckPage("parent");
         }}
         onSelectChild={(name) => {
-          const child = { name };
+          const child = (childrenList ?? []).find((c) => c.name === name) || { name };
           setSelectedChild(child);
           localStorage.setItem("tt_selectedChild", JSON.stringify(child));
 

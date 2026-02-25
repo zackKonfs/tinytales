@@ -4,7 +4,6 @@ const API_BASE = "http://localhost:5000";
 
 export async function apiFetch(path, options = {}) {
   const token = getAccessToken();
-  console.log("apiFetch token:", token);
   const headers = {
     ...(options.headers || {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),

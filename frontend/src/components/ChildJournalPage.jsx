@@ -1,20 +1,16 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { apiFetch } from "../api/client";
 import notebookImg from "../assets/notebook.png";
 
-export default function ChildJournalPage({ child }) {
+export default function ChildJournalPage({ child, onLogout, onGoParent }) {
 
     const [showNewEntry, setShowNewEntry] = useState(false);
-
-  const entries = useMemo(
-    () => [
-      { id: 1, dateLabel: "2nd December 2025", title: "Park day" },
-      { id: 2, dateLabel: "5th December 2025", title: "Drawing" },
-      { id: 3, dateLabel: "7th Dec 2025", title: "Bedtime story" },
-      { id: 4, dateLabel: "8th December 2025", title: "Playground" },
-      { id: 5, dateLabel: "9th December 2025", title: "Family dinner" },
-    ],
-    []
-  );
+    const [entries, setEntries] = useState([]);
+    const [loadingEntries, setLoadingEntries] = useState(false);
+    const [entryTitle, setEntryTitle] = useState("");
+    const [entryContent, setEntryContent] = useState("");
+    const [savingEntry, setSavingEntry] = useState(false);
+    const [editingEntry, setEditingEntry] = useState(null);
 
   const months = useMemo(
     () => ["January 2026", "February 2026", "March 2026", "April 2026"],
@@ -25,11 +21,54 @@ export default function ChildJournalPage({ child }) {
 
   const todayText = "Today is 30th January 2026, Friday";
 
+  useEffect(() => {
+  if (!child?.id) return;
+
+  let alive = true;
+
+  async function loadEntries() {
+        setLoadingEntries(true);
+        try {
+        const res = await apiFetch(`/api/entries/children/${child.id}/entries`);
+        const json = await res.json().catch(() => ({}));
+        if (!alive) return;
+
+        if (!res.ok) {
+            console.log("Failed to load entries:", res.status, json);
+            setEntries([]);
+            return;
+        }
+
+        setEntries(json.entries ?? []);
+        } catch (err) {
+        if (!alive) return;
+        console.log("Network error loading entries:", err);
+        setEntries([]);
+        } finally {
+        if (alive) setLoadingEntries(false);
+        }
+    }
+
+    loadEntries();
+
+    return () => {
+        alive = false;
+    };
+    }, [child?.id]);
+
   return (
     <div style={styles.page}>
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
+            <div style={styles.topRightActions}>
+                <button style={styles.parentBtn} onClick={onGoParent}>
+                    Parent
+                </button>
+                <button style={styles.logoutBtn} onClick={onLogout}>
+                    Logout
+                </button>
+            </div>
           <h1 style={styles.title}>{(child?.name ?? "Zack")}'s Tales</h1>
 
             <button style={styles.newEntryBtn} onClick={() => setShowNewEntry(true)}>
@@ -44,27 +83,61 @@ export default function ChildJournalPage({ child }) {
             ‹
           </button>
 
-          <div style={styles.cardsRow}>
-            {entries.map((e) => (
-              <div key={e.id} style={styles.card}>
-                <div style={styles.thumb}>
-                  {/* placeholder image area */}
-                  <div style={styles.thumbPlaceholder} />
-                  {/* edit + bin (UI only for now) */}
-                  <div style={styles.cardActions}>
-                    <button style={styles.iconBtn} title="Edit">
-                      ✎
-                    </button>
-                    <button style={styles.iconBtn} title="Delete">
-                      🗑
-                    </button>
-                  </div>
-                </div>
+        <div style={styles.cardsRow}>
+            {loadingEntries ? (
+                <div style={{ opacity: 0.6 }}>Loading entries...</div>
+            ) : entries.length === 0 ? (
+                <div style={{ opacity: 0.6 }}>No entry yet.</div>
+            ) : (
+                entries.map((e) => (
+                <div key={e.id} style={styles.card}>
+                    <div style={styles.thumb}>
+                    <div style={styles.thumbPlaceholder} />
+                    <div style={styles.cardActions}>
+                        <button
+                            style={styles.iconBtn}
+                            title="Edit"
+                            onClick={(ev) => {
+                                ev.stopPropagation();
+                                setEditingEntry(e);
+                                setEntryTitle(e.title ?? "");
+                                setEntryContent(e.content ?? "");
+                                setShowNewEntry(true);
+                            }}
+                        >
+                        ✎
+                        </button>
+                        <button
+                            style={styles.iconBtn}
+                            title="Delete"
+                            onClick={async (ev) => {
+                                ev.stopPropagation();
 
-                <div style={styles.cardDate}>{e.dateLabel}</div>
-              </div>
-            ))}
-          </div>
+                                if (!confirm("Delete this entry?")) return;
+
+                                const res = await apiFetch(`/api/entries/${e.id}/deactivate`, {
+                                method: "PATCH",
+                                });
+
+                                const json = await res.json().catch(() => ({}));
+                                if (!res.ok) return alert(json.message || "Failed to delete");
+
+                                // remove from UI
+                                setEntries((prev) => prev.filter((x) => x.id !== e.id));
+                            }}
+                        >
+                        🗑
+                        </button>
+                    </div>
+                    </div>
+
+                    <div style={styles.cardDate}>
+                    {new Date(e.entry_date).toLocaleDateString()}
+                    </div>
+                </div>
+                ))
+            )}
+        </div>
 
           <button style={styles.arrowBtn} aria-label="Next entries">
             ›
@@ -107,13 +180,23 @@ export default function ChildJournalPage({ child }) {
                     <div style={modalStyles.date}>30th January 2026, Friday</div>
 
                     <div style={modalStyles.field}>
-                    <div style={modalStyles.label}>Title</div>
-                    <input style={modalStyles.input} placeholder="Write a short title..." />
+                        <div style={modalStyles.label}>Title</div>
+                        <input
+                            style={modalStyles.titleInput}
+                            placeholder="Write a short title..."
+                            value={entryTitle}
+                            onChange={(e) => setEntryTitle(e.target.value)}
+                        />
                     </div>
 
                     <div style={{...modalStyles.field, flex: 1}}>
                     <div style={modalStyles.label}>Content</div>
-                    <textarea style={modalStyles.textarea} placeholder="Write about today's tale..." />
+                    <textarea
+                        style={modalStyles.textarea}
+                        placeholder="Write about today's tale..."
+                        value={entryContent}
+                        onChange={(e) => setEntryContent(e.target.value)}
+                    />
                     </div>
 
                     <div style={modalStyles.bottomSection}>
@@ -124,8 +207,71 @@ export default function ChildJournalPage({ child }) {
                         </div>
 
                         <div style={modalStyles.actions}>
-                        <button style={modalStyles.primary}>Record Entry</button>
-                        <button style={modalStyles.secondary} onClick={() => setShowNewEntry(false)}>
+                        <button
+                            style={modalStyles.primary}
+                            disabled={savingEntry}
+                            onClick={async () => {
+                                if (!child?.id) return;
+
+                                const t = entryTitle.trim();
+                                const c = entryContent.trim();
+                                if (!t || !c) return alert("Please fill in title and content.");
+
+                                setSavingEntry(true);
+                                try {
+                                    const url = editingEntry
+                                        ? `/api/entries/${editingEntry.id}`
+                                        : "/api/entries";
+
+                                        const method = editingEntry ? "PATCH" : "POST";
+
+                                        const body = editingEntry
+                                        ? { title: t, content: c }
+                                        : {
+                                            child_id: child.id,
+                                            title: t,
+                                            content: c,
+                                            entry_date: new Date().toISOString().slice(0, 10),
+                                            };
+
+                                        const res = await apiFetch(url, {
+                                        method,
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify(body),
+                                    });
+
+                                    const json = await res.json().catch(() => ({}));
+                                    if (!res.ok) return alert(json.message || json.error || "Failed to save entry");
+
+                                    if (editingEntry) {
+                                        setEntries((prev) =>
+                                            prev.map((x) => (x.id === json.entry.id ? json.entry : x))
+                                        );
+                                    } else {
+                                        setEntries((prev) => [json.entry, ...prev]);
+                                    }
+
+                                    // reset + close
+                                    setEditingEntry(null);
+                                    setEntryTitle("");
+                                    setEntryContent("");
+                                    setShowNewEntry(false);
+                                    } finally {
+                                    setSavingEntry(false);
+                                }
+                            }}
+                            >
+                            {savingEntry ? "Saving..." : (editingEntry ? "Save Changes" : "Record Entry")}
+                        </button>
+                        <button
+                            style={modalStyles.secondary}
+                            onClick={() => {
+                                setShowNewEntry(false);
+                                setEditingEntry(null);
+                                setEntryTitle("");
+                                setEntryContent("");
+                            }}
+                        >
                             Cancel
                         </button>
                         </div>
@@ -153,7 +299,19 @@ const styles = {
   },
   header: {
     marginBottom: 28,
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    paddingTop: 20,
   },
+  topRightActions: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    display: "flex",
+    gap: 16,
+    },
   title: {
     fontSize: 64,
     margin: 0,
@@ -280,6 +438,27 @@ const styles = {
   monthPillActive: {
     background: "#f4b24f",
   },
+    parentBtn: {
+        padding: "12px 18px",
+        borderRadius: 14,
+        border: "1px solid rgba(0,0,0,0.12)",
+        background: "#f6efe7",
+        color: "#245a52",
+        fontWeight: 700,
+        cursor: "pointer",
+        boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+    },
+
+    logoutBtn: {
+        padding: "12px 18px",
+        borderRadius: 14,
+        border: "1px solid rgba(0,0,0,0.12)",
+        background: "#f6efe7",
+        color: "#a3402c",
+        fontWeight: 700,
+        cursor: "pointer",
+        boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+    },
 };
 
 const modalStyles = {
@@ -295,11 +474,11 @@ const modalStyles = {
   },
 
   modal: {
-    width: "min(560px, 92vw)",   // control popup size here
+    width: "min(560px, 92vw)",
   },
 
   notebook: {
-    width: "100%",
+    width: 520,
     aspectRatio: "2 / 3",
     backgroundImage: `url(${notebookImg})`,
     backgroundSize: "contain",
@@ -307,15 +486,13 @@ const modalStyles = {
     backgroundPosition: "center",
     position: "relative",
 
-    // IMPORTANT: these paddings align content inside the notebook
     paddingTop: 58,
     paddingRight: 54,
     paddingBottom: 90,
-    paddingLeft: 92, // bigger because left side has rings
+    paddingLeft: 92,
 
     display: "flex",
     flexDirection: "column",
-    height: "100%",
   },
 
   date: {
@@ -339,16 +516,27 @@ const modalStyles = {
     fontSize: 14,
   },
 
-  textarea: {
-    width: "100%",
-    height: 440,
-    borderRadius: 8,
-    border: "1px solid rgba(0,0,0,0.18)",
-    padding: "10px 10px",
-    background: "rgba(255,255,255,0.55)",
-    fontSize: 14,
-    resize: "none",
-  },
+  titleInput: {
+        width: "100%",
+        height: 44,
+        borderRadius: 12,
+        border: "1px solid #d8cfc2",
+        padding: "0 14px",
+        fontSize: 16,
+        background: "rgba(255,255,255,0.75)",
+        outline: "none",
+    },
+
+    textarea: {
+        width: "100%",
+        height: 330,
+        borderRadius: 12,
+        border: "1px solid #d8cfc2",
+        padding: 14,
+        fontSize: 16,
+        resize: "none",
+        background: "rgba(255,255,255,0.75)",
+    },
 
   photoRow: {
     display: "flex",
@@ -395,7 +583,7 @@ const modalStyles = {
     cursor: "pointer",
     fontWeight: 700,
   },
-  bottomSection: {
-    marginTop: "auto",
+    bottomSection: {
+        marginTop: "auto",
     },
 };
