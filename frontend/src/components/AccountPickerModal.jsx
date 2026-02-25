@@ -1,12 +1,13 @@
 export default function AccountPickerModal({
   open,
   parentName = "Zack",
-  childrenNames = ["Kayden", "Child 2"],
+  childrenNames = [],
   onSelectParent,
   onSelectChild,
   onClose,
 }) {
   if (!open) return null;
+  console.log("AccountPicker childrenNames:", childrenNames);
 
   return (
     <div style={styles.backdrop}>

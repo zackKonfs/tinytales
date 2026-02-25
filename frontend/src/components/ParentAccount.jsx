@@ -305,6 +305,18 @@ export default function ParentAccount({
                 </div>
             </div>
         )}
+
+        {loadingChildren && (
+            <div style={{ padding: "8px 0", opacity: 0.8 }}>
+                Loading children...
+            </div>
+        )}
+
+        {childrenError && (
+            <div style={{ padding: "8px 0", color: "crimson" }}>
+                {childrenError}
+            </div>
+        )}
     </div>
   );
 }

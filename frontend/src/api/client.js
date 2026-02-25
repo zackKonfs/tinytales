@@ -1,4 +1,4 @@
-import { getAccessToken, clearSession } from "../auth/session";
+import { getAccessToken } from "../auth/session";
 
 const API_BASE = "http://localhost:5000";
 
@@ -14,11 +14,6 @@ export async function apiFetch(path, options = {}) {
     ...options,
     headers,
   });
-
-  // If backend says "not authorized", clear local session (logout)
-  if (res.status === 401) {
-    clearSession();
-  }
 
   return res;
 }

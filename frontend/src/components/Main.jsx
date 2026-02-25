@@ -6,11 +6,11 @@ import ParentAccount from "../components/ParentAccount";
 import { loadSession, clearSession } from "../auth/session";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api/client";
-
+import ChildJournalPage from "../components/ChildJournalPage";
 
 const PAGES = {
   entry: EnterPage,
-  yourtales: YourTales,
+  child: ChildJournalPage,
   parent: ParentAccount,
 };
 
@@ -18,18 +18,12 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
   const Page = PAGES[checkPage] ?? EnterPage;
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [isBooting, setIsBooting] = useState(true);
+  const [selectedChild, setSelectedChild] = useState(null);
+  const [childrenNames, setChildrenNames] = useState([]);
 
   const pageProps = {
     entry: { setLogin: () => setShowLogin(true) },
-      yourtales: {
-        username,
-        onLogout: () => {
-        clearSession();
-        setUsername("");
-        setCheckPage("entry");
-      },
-    },
-
+    child: { username, child: selectedChild },
     parent: {
       parentName: "Zack",
       onLogout: () => {
@@ -71,7 +65,24 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
         }
 
         setUsername(saved.user.email);
-        setCheckPage("parent");
+        const savedChildRaw = localStorage.getItem("tt_selectedChild");
+        if (savedChildRaw) {
+          try {
+            setSelectedChild(JSON.parse(savedChildRaw));
+          } catch (err) {
+            console.error("Failed to parse saved child:", err);
+          }
+        }
+
+        const last = localStorage.getItem("tt_lastPage");
+          const safeLast = last && last !== "entry" ? last : "parent";
+
+          if (safeLast === "child" && !savedChildRaw) {
+            setCheckPage("parent");
+          } else {
+            setCheckPage(safeLast);
+        }
+
         setIsBooting(false);
       } catch {
         clearSession();
@@ -83,6 +94,42 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
 
     bootAuth();
   }, [setCheckPage, setUsername]);
+
+  useEffect(() => {
+    if (isBooting) return;
+    localStorage.setItem("tt_lastPage", checkPage);
+  }, [checkPage, isBooting]);
+
+  useEffect(() => {
+    if (!showAccountPicker) return;
+
+    let alive = true;
+
+    async function loadChildrenForPicker() {
+      try {
+        const res = await apiFetch("/api/children");
+        const json = await res.json().catch(() => ({}));
+
+        if (!alive) return;
+
+        if (res.ok) {
+          const names = (json.children ?? []).map((c) => c.name);
+          setChildrenNames(names);
+        } else {
+          setChildrenNames([]);
+        }
+      } catch {
+        if (!alive) return;
+        setChildrenNames([]);
+      }
+    }
+
+    loadChildrenForPicker();
+
+    return () => {
+      alive = false;
+    };
+  }, [showAccountPicker]);
 
   if (isBooting) {
     return <div style={{ padding: 24, opacity: 0.7 }}>Loading...</div>;
@@ -101,12 +148,19 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
       <AccountPickerModal
         open={showAccountPicker}
         parentName="Zack (Parent)"
-        childrenNames={[]}
+        childrenNames={childrenNames}
         onSelectParent={() => {
           setShowAccountPicker(false);
           setCheckPage("parent");
         }}
-        onSelectChild={(name) => console.log("child clicked:", name)}
+        onSelectChild={(name) => {
+          const child = { name };
+          setSelectedChild(child);
+          localStorage.setItem("tt_selectedChild", JSON.stringify(child));
+
+          setShowAccountPicker(false);
+          setCheckPage("child");
+        }}
         onClose={() => setShowAccountPicker(false)}
       />
     </main>
