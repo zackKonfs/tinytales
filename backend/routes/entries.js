@@ -1,6 +1,17 @@
 import express from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
 import { supabase, supabaseAdmin } from "../supabaseClient.js";
+import { createClient } from "@supabase/supabase-js";
+
+function supabaseForRequest(req) {
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+  const token = (req.headers.authorization || "").replace("Bearer ", "");
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+}
 const router = express.Router();
 
 router.post("/", requireAuth, async (req, res) => {
@@ -128,27 +139,28 @@ router.put("/:entryId", requireAuth, async (req, res) => {
 });
 
 router.get("/children/:id/entries", requireAuth, async (req, res) => {
+  const supabaseRls = supabaseForRequest(req);
   const childId = Number(req.params.id);
   if (!childId) return res.status(400).json({ ok: false, message: "Invalid child id" });
 
-  const { data: userData, error: userErr } = await supabase.auth.getUser(req.accessToken);
+  const { data: userData, error: userErr } = await supabaseRls.auth.getUser();
   if (userErr || !userData?.user) {
     return res.status(401).json({ ok: false, message: "Invalid token" });
   }
   const userId = userData.user.id;
 
-  const { data: childRow, error: childErr } = await supabase
+  const { data: childRow, error: childErr } = await supabaseRls
     .from("children")
     .select("id")
     .eq("id", childId)
     .eq("parent_user_id", userId)
-    .single();
+    .maybeSingle();
 
   if (childErr || !childRow) {
     return res.status(403).json({ ok: false, message: "No access to this child" });
   }
 
-  const { data: entries, error: entriesErr } = await supabase
+  const { data: entries, error: entriesErr } = await supabaseRls
     .from("entries")
     .select("id, title, content, entry_date, created_at")
     .eq("child_id", childId)
@@ -191,7 +203,7 @@ router.patch("/:entryId", requireAuth, async (req, res) => {
     .eq("parent_user_id", userId)
     .single();
 
-  if (childErr || !childRow) return res.status(403).json({ ok: false, message: "No access" });
+  if (childErr || !childRow) return res.status(403).json({ ok: false, message: "No access to this child" });
 
   const { data: updated, error: upErr } = await supabase
     .from("entries")

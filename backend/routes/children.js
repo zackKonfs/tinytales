@@ -103,4 +103,35 @@ router.patch("/children/:id/active", requireAuth, async (req, res) => {
     }
 });
 
+router.get("/children/:childId/profile", requireAuth, async (req, res) => {
+  try {
+    const { childId } = req.params;
+    const supabase = supabaseForRequest(req);
+
+    const { data: child, error } = await supabase
+      .from("children")
+      .select("id, parent_user_id, avatar_path")
+      .eq("id", childId)
+      .single();
+
+    if (error || !child) {
+      return res.status(404).json({ ok: false, message: error?.message || "Child not found" });
+    }
+
+    if (child.parent_user_id !== req.user.id) {
+      return res.status(403).json({ ok: false, message: "Not your child" });
+    }
+
+    const avatar_path = child.avatar_path || "";
+    const avatar_url = avatar_path
+      ? supabase.storage.from("avatars").getPublicUrl(avatar_path).data.publicUrl
+      : "";
+
+    return res.json({ ok: true, profile: { avatar_url } });
+  } catch (err) {
+    console.error("GET child profile error:", err);
+    return res.status(500).json({ ok: false, message: err?.message || "Server error" });
+  }
+});
+
 export default router;

@@ -21,6 +21,69 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
 
   const todayText = "Today is 30th January 2026, Friday";
 
+  const [childAvatarUrl, setChildAvatarUrl] = useState("");
+
+    async function handleChildAvatarChange(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const MAX = 1.5 * 1024 * 1024;
+
+        if (file.size > MAX) {
+            alert("Image must be smaller than 1.5MB");
+            e.target.value = "";
+            return;
+        }
+
+        if (!file.type.startsWith("image/")) {
+            alert("File must be an image");
+            e.target.value = "";
+            return;
+        }
+
+        try {
+            const form = new FormData();
+            form.append("avatar", file);
+
+            const res = await apiFetch(`/api/avatar/children/${child?.id}`, {
+            method: "POST",
+            body: form,
+            });
+
+            const json = await res.json().catch(() => ({}));
+
+            if (!res.ok) {
+            alert(json.error || json.message || `Upload failed (${res.status})`);
+            return;
+            }
+
+            setChildAvatarUrl(`${json.avatar_url}?v=${Date.now()}`);
+        } catch (err) {
+            console.error(err);
+            alert("Upload failed");
+        } finally {
+            e.target.value = "";
+        }
+    }
+
+    useEffect(() => {
+        async function loadChildProfile() {
+            if (!child?.id) return;
+
+            const res = await apiFetch(`/api/children/${child.id}/profile`);
+            const json = await res.json().catch(() => ({}));
+
+            if (res.ok && json.ok) {
+                const url = json.profile?.avatar_url || "";
+                setChildAvatarUrl(url ? `${url}?v=${Date.now()}` : "");
+            } else {
+                console.log("loadChildProfile failed:", res.status, json);
+            }
+        }
+
+        loadChildProfile();
+    }, [child?.id]);
+
   useEffect(() => {
   if (!child?.id) return;
 
@@ -69,7 +132,36 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
                     Logout
                 </button>
             </div>
-          <h1 style={styles.title}>{(child?.name ?? "Zack")}'s Tales</h1>
+          <div style={styles.titleRow}>
+
+  <div style={styles.avatarWrapper}>
+    <div style={styles.avatarCircle}>
+      {childAvatarUrl && (
+        <img
+          src={childAvatarUrl}
+          alt="child avatar"
+          style={styles.avatarImage}
+          onError={() => setChildAvatarUrl("")}
+        />
+      )}
+    </div>
+
+    <label style={styles.avatarEditBtn} title="Change avatar">
+        <input
+            type="file"
+            accept="image/*"
+            style={styles.hiddenFileInput}
+            onChange={handleChildAvatarChange}
+        />
+        ✏️
+        </label>
+    </div>
+
+    <h1 style={styles.title}>
+        {(child?.name ?? "Zack")}'s Tales
+    </h1>
+
+    </div>
 
             <button style={styles.newEntryBtn} onClick={() => setShowNewEntry(true)}>
                 NEW ENTRY
@@ -458,6 +550,55 @@ const styles = {
         fontWeight: 700,
         cursor: "pointer",
         boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+    },
+
+    // title avatar
+    titleRow: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 12,
+    },
+
+    avatarWrapper: {
+        position: "relative",
+        width: 100,
+        height: 85,
+    },
+
+    avatarCircle: {
+        width: 100,
+        height: 100,
+        borderRadius: "50%",
+        background: "#eee",
+        overflow: "hidden",
+    },
+
+    avatarImage: {
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+    },
+
+    avatarEditBtn: {
+        position: "absolute",
+        bottom: -8,
+        right: -4,
+        width: 24,
+        height: 24,
+        borderRadius: "50%",
+        background: "#ffffff",
+        border: "1px solid #ddd",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+        fontSize: 12,
+    },
+
+    hiddenFileInput: {
+        display: "none",
     },
 };
 
