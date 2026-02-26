@@ -210,7 +210,19 @@ export default function ParentAccount({
                         onClick={() => onSelectChild?.(c)}
                     >
                     <div style={styles.thumb}>
-                        <div style={styles.thumbText}>{getInitials(c.name)}</div>
+                        {c.avatar_url ? (
+                            <img
+                            src={`${c.avatar_url}?v=${Date.now()}`}
+                            alt={`${c.name} avatar`}
+                            style={styles.thumbImg}
+                            onError={(e) => {
+                                // fallback to initials if image breaks
+                                e.currentTarget.style.display = "none";
+                            }}
+                            />
+                        ) : (
+                            <div style={styles.thumbText}>{getInitials(c.name)}</div>
+                        )}
                     </div>
                     <div style={styles.childName}>{c.name}</div>
                     <button
@@ -509,5 +521,11 @@ const styles = {
         color: "#245a52",
         letterSpacing: 2,
         userSelect: "none",
+    },
+    thumbImg: {
+        width: "100%",
+        height: "100%",
+        objectFit: "cover",
+        display: "block",
     },
 };

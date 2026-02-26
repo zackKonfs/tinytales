@@ -3,28 +3,37 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error("Missing SUPABASE_URL or SUPABASE_ANON_KEY");
+}
+
+// Create once (cheap + consistent)
+const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
 export async function requireAuth(req, res, next) {
-  const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  try {
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : null;
 
-  if (!token) {
-    return res.status(401).json({ ok: false, message: "Missing token" });
-  }
+    if (!token) {
+      return res.status(401).json({ ok: false, message: "Missing token" });
+    }
 
-  // Create a Supabase client that can validate the JWT
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
+    // Validate token + fetch user
+    const { data, error } = await authClient.auth.getUser(token);
 
-  const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data?.user) {
+      return res.status(401).json({ ok: false, message: "Invalid token" });
+    }
 
-  if (error || !data?.user) {
+    req.accessToken = token;
+    req.user = data.user;
+
+    return next();
+  } catch (err) {
+    // avoid leaking internal error details
     return res.status(401).json({ ok: false, message: "Invalid token" });
   }
-
-  // ✅ attach verified user to request
-  req.accessToken = token;
-  req.user = data.user;
-
-  next();
 }
