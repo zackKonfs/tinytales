@@ -31,6 +31,8 @@ export const styles = {
     boxShadow: "0 6px 0 rgba(0,0,0,0.12)",
   },
   today: { marginTop: 14, opacity: 0.9 },
+
+  /* ===== carousel ===== */
   topCarousel: { display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginTop: 22 },
   arrowBtn: {
     width: 44,
@@ -42,22 +44,39 @@ export const styles = {
     fontSize: 22,
   },
   cardsRow: {
-        display: "flex",
-        gap: 16,
-        overflow: "hidden",
-        padding: 6,
-        width: (180 * 3) + (16 * 2), // 3 cards + gaps
-        justifyContent: "flex-start",
-    },
+    display: "flex",
+    gap: 16,
+    overflow: "hidden",
+    padding: 6,
+    width: 180 * 3 + 16 * 2,
+    justifyContent: "flex-start",
+  },
   card: {
     width: 180,
     background: "rgba(255,255,255,0.75)",
-    border: "1px solid rgba(0,0,0,0.12)",
+    borderWidth: 2,
+    borderStyle: "solid",
+    borderColor: "rgba(0,0,0,0.12)",
     borderRadius: 14,
     padding: 10,
     boxShadow: "0 10px 20px rgba(0,0,0,0.08)",
+    cursor: "pointer",
+    userSelect: "none",
   },
-cardPlaceholder: {
+  cardActive: {
+    outline: "3px solid rgba(244,178,79,0.20)",
+  },
+  cardTitle: {
+    fontWeight: 900,
+    fontSize: 14,
+    textAlign: "left",
+    marginBottom: 8,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    color: "#245a52",
+  },
+  cardPlaceholder: {
     width: 180,
     borderRadius: 14,
     padding: 10,
@@ -65,11 +84,7 @@ cardPlaceholder: {
     border: "2px dashed rgba(0,0,0,0.12)",
     boxShadow: "none",
   },
-  thumbPlaceholderEmpty: {
-    width: "100%",
-    height: "100%",
-    background: "rgba(255,255,255,0.35)",
-  },
+
   thumb: {
     position: "relative",
     borderRadius: 12,
@@ -78,51 +93,77 @@ cardPlaceholder: {
     background: "#fff",
     border: "1px solid rgba(0,0,0,0.08)",
   },
+
+  // shows actual photo
+  thumbImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
+  },
+
+  // placeholder when no photo
   thumbPlaceholder: {
     width: "100%",
     height: "100%",
     background: "linear-gradient(135deg, rgba(77,149,142,0.2), rgba(244,178,79,0.25))",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  cardActions: { position: "absolute", right: 10, bottom: 10, display: "flex", gap: 8 },
+  thumbPlaceholderInner: {
+    textAlign: "center",
+    padding: 10,
+    opacity: 0.9,
+  },
+  thumbLetter: {
+    width: 46,
+    height: 46,
+    borderRadius: 999,
+    background: "rgba(255,255,255,0.75)",
+    border: "1px solid rgba(0,0,0,0.10)",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 900,
+    fontSize: 18,
+    marginBottom: 6,
+  },
+  thumbHint: {
+    fontSize: 12,
+    opacity: 0.75,
+    fontWeight: 700,
+  },
+
+  // ACTION buttons moved down + right (away from photo center)
+  cardActions: { position: "absolute", right: 8, bottom: 8, display: "flex", gap: 8 },
   iconBtn: {
     width: 34,
     height: 34,
     borderRadius: 999,
     border: "1px solid rgba(0,0,0,0.12)",
-    background: "rgba(255,255,255,0.85)",
+    background: "rgba(255,255,255,0.90)",
     cursor: "pointer",
   },
+
   cardDate: { marginTop: 10, fontSize: 14, opacity: 0.9 },
-  monthCarouselWrap: { marginTop: 30, display: "flex", justifyContent: "center" },
-  monthCarousel: {
+
+  /* ===== calendar row below ===== */
+  yearBtnRow: {
+    marginTop: 12,
     display: "flex",
-    alignItems: "center",
-    gap: 10,
-    background: "rgba(255,255,255,0.55)",
-    border: "1px solid rgba(0,0,0,0.12)",
-    borderRadius: 16,
-    padding: "10px 12px",
-    boxShadow: "0 10px 20px rgba(0,0,0,0.06)",
+    justifyContent: "center",
   },
-  monthArrow: {
-    width: 38,
-    height: 38,
-    borderRadius: 999,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "rgba(255,255,255,0.75)",
-    cursor: "pointer",
-    fontSize: 18,
-  },
-  monthPills: { display: "flex", gap: 10, padding: "0 4px" },
-  monthPill: {
+  yearBtn: {
     padding: "10px 14px",
     borderRadius: 12,
     border: "1px solid rgba(0,0,0,0.12)",
     background: "rgba(255,255,255,0.75)",
     cursor: "pointer",
-    fontWeight: 600,
+    fontWeight: 800,
   },
-  monthPillActive: { background: "#f4b24f" },
+
+  /* ===== header buttons ===== */
   parentBtn: {
     padding: "12px 18px",
     borderRadius: 14,
@@ -143,6 +184,7 @@ cardPlaceholder: {
     cursor: "pointer",
     boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
   },
+
   titleRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: 12 },
   avatarWrapper: { position: "relative", width: 100, height: 85 },
   avatarCircle: { width: 100, height: 100, borderRadius: "50%", background: "#eee", overflow: "hidden" },
