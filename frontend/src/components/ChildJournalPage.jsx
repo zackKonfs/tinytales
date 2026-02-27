@@ -6,81 +6,36 @@ import { useChildProfile, useChildEntries, useEntryEditor } from "./childJournal
 import ChildJournalCalendar from "./ChildJournalCalendar";
 import YearPickerModal from "./YearPickerModal";
 import EntryViewerModal from "./EntryViewerModal";
+import {
+  formatToday,
+  parseDateKey,
+  dateKeyFromEntry,
+  sortAscByTime,
+  sortDescByTime,
+  capFirst,
+  monthClamp,
+  loadSavedView,
+  saveView,
+  getBirthdayKeyForYear,
+  YEAR_RANGE,
+} from "./childJournal.utils";
+import ChildJournalCard from "./ChildJournalCard";
 
-const MAX_MB = 1.5;
-const MAX_BYTES = MAX_MB * 1024 * 1024;
+const MAX_BYTES = 1.5 * 1024 * 1024;
 
 // one highlight color used by calendar + carousel
 const HIGHLIGHT = "#f4b24f";
 
-function formatToday() {
-  const d = new Date();
-  const day = d.getDate();
-  const suffix =
-    day % 10 === 1 && day !== 11
-      ? "st"
-      : day % 10 === 2 && day !== 12
-      ? "nd"
-      : day % 10 === 3 && day !== 13
-      ? "rd"
-      : "th";
-  const month = d.toLocaleString("en-US", { month: "long" });
-  const year = d.getFullYear();
-  const weekday = d.toLocaleString("en-US", { weekday: "long" });
-  return `Today is ${day}${suffix} ${month} ${year}, ${weekday}`;
-}
+// birthday highlight colors (calendar)
+const CHILD_BDAY_COLOR = "#5cc8ff"; // child birthday dot/bg
+// const PARENT_BDAY_COLOR = "#ff77c8"; // parent birthday dot/bg (not used on child page)
 
-function formatEntryDateTime(isoString) {
-  if (!isoString) return "";
-  const d = new Date(isoString);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("en-SG", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-}
-
-function dateKeyFromEntry(e) {
-  // Use entry_date for calendar grouping (YYYY-MM-DD)
-  const raw = e?.entry_date;
-  if (typeof raw === "string" && raw.length >= 10) return raw.slice(0, 10);
-  // fallback: created_at date
-  const d = new Date(e?.created_at || Date.now());
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toISOString().slice(0, 10);
-}
-
-function parseDateKey(key) {
-  // "YYYY-MM-DD"
-  if (!key || key.length < 10) return null;
-  const y = Number(key.slice(0, 4));
-  const m = Number(key.slice(5, 7)) - 1;
-  const d = Number(key.slice(8, 10));
-  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-  return { year: y, monthIndex: m, day: d };
-}
-
-function sortAscByTime(a, b) {
-  // earliest -> latest
-  const ta = new Date(a?.created_at || a?.entry_date || 0).getTime();
-  const tb = new Date(b?.created_at || b?.entry_date || 0).getTime();
-  return ta - tb;
-}
-
-function sortDescByTime(a, b) {
-  const ta = new Date(a?.created_at || a?.entry_date || 0).getTime();
-  const tb = new Date(b?.created_at || b?.entry_date || 0).getTime();
-  return tb - ta;
-}
+const { MIN_YEAR, MAX_YEAR } = YEAR_RANGE;
 
 /* =========================
    Component
 ========================= */
-export default function ChildJournalPage({ child, onLogout, onGoParent }) {
+export default function ChildJournalPage({ child }) {
   const CARDS_PER_PAGE = 3;
 
   const todayText = useMemo(() => formatToday(), []);
@@ -90,19 +45,41 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
   const { entries, setEntries, loadingEntries } = useChildEntries(childId);
 
   // ===== calendar month/year state (replaces month pills) =====
-  const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
-  const [viewMonthIndex, setViewMonthIndex] = useState(() => new Date().getMonth());
+  const [viewYear, setViewYear] = useState(() => {
+  const saved = loadSavedView(childId);
+    return saved?.year ?? new Date().getFullYear();
+    });
 
+    const [viewMonthIndex, setViewMonthIndex] = useState(() => {
+    const saved = loadSavedView(childId);
+    return saved?.monthIndex ?? new Date().getMonth();
+    });
+
+    useEffect(() => {
+        saveView(childId, viewYear, viewMonthIndex);
+    }, [childId, viewYear, viewMonthIndex]);
+
+  const didInitMonthRef = useRef(false);
   // Keep view month aligned to newest entry when entries first load
   useEffect(() => {
-    if (!entries || entries.length === 0) return;
-    const newest = [...entries].sort(sortDescByTime)[0];
-    const dk = dateKeyFromEntry(newest);
-    const parsed = parseDateKey(dk);
-    if (!parsed) return;
-    setViewYear(parsed.year);
-    setViewMonthIndex(parsed.monthIndex);
-  }, [entries]);
+        // If a view was saved for this child, don't auto-jump.
+        const saved = loadSavedView(childId);
+        if (saved) return;
+        // only run once on first successful entries load
+        if (didInitMonthRef.current) return;
+        if (!entries || entries.length === 0) return;
+
+        const newest = [...entries].sort(sortDescByTime)[0];
+        const dk = dateKeyFromEntry(newest);
+        const parsed = parseDateKey(dk);
+        if (!parsed) return;
+
+        const clamped = monthClamp(parsed.year, parsed.monthIndex);
+        setViewYear(clamped.y);
+        setViewMonthIndex(clamped.m);
+
+        didInitMonthRef.current = true;
+    }, [entries, childId]);
 
   // ===== carousel control =====
   // start index of the 3-card window
@@ -116,37 +93,8 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
   const [viewerEntry, setViewerEntry] = useState(null);
   const [showViewer, setShowViewer] = useState(false);
 
-  // cache signed thumbnail URLs by entryId
+    // ===== thumbnail cache (entryId -> signed url) =====
   const [thumbUrlByEntryId, setThumbUrlByEntryId] = useState({});
-  const thumbRef = useRef({});
-  useEffect(() => {
-    thumbRef.current = thumbUrlByEntryId;
-  }, [thumbUrlByEntryId]);
-
-  // invalidate thumbnail cache when entries change (especially when photos removed)
-  useEffect(() => {
-    const next = {};
-    for (const e of entries || []) {
-      const hasPhotos = Array.isArray(e.photo_paths) && e.photo_paths.length > 0;
-      if (hasPhotos && thumbRef.current[e.id]) {
-        next[e.id] = thumbRef.current[e.id];
-      }
-    }
-    // only update if something actually changed
-    const prevKeys = Object.keys(thumbRef.current);
-    const nextKeys = Object.keys(next);
-    if (prevKeys.length !== nextKeys.length) {
-      setThumbUrlByEntryId(next);
-      return;
-    }
-    for (const k of prevKeys) {
-      if (next[k] !== thumbRef.current[k]) {
-        setThumbUrlByEntryId(next);
-        return;
-      }
-    }
-    // no change
-  }, [entries]);
 
   // entries grouped by dateKey for calendar markers + click behavior
   const entriesByDate = useMemo(() => {
@@ -190,36 +138,50 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
     return monthEntries.slice(start, end);
   }, [monthEntries, carouselStart]);
 
+
+
   const editor = useEntryEditor({ childId, setEntries });
 
-  // fetch signed thumbnail URLs for the entries currently shown (only if they have photos)
-  useEffect(() => {
-    const list = (pagedEntries || []).filter(Boolean);
-    if (list.length === 0) return;
+    // Fetch signed thumbnail urls for only the entries we are showing in the carousel.
+    const fetchThumbsForEntries = useCallback(
+        async (list) => {
+        const arr = Array.isArray(list) ? list : [];
 
-    list.forEach(async (e) => {
-      const hasPhotos = Array.isArray(e.photo_paths) && e.photo_paths.length > 0;
-      if (!hasPhotos) return;
-
-      if (thumbRef.current[e.id]) return;
-
-      try {
-        const res = await apiFetch(`/api/entries/${e.id}/photos`);
-        const json = await fetchJson(res);
-        if (!res.ok) return;
-
-        const first = json.urls?.[0];
-        if (!first) return;
-
-        setThumbUrlByEntryId((prev) => {
-          if (prev[e.id]) return prev;
-          return { ...prev, [e.id]: first };
+        // only fetch if entry has photo_paths AND we don't already have a cached url
+        const need = arr.filter((e) => {
+            const hasPhotos = Array.isArray(e?.photo_paths) ? e.photo_paths.length > 0 : false;
+            return e?.id && hasPhotos && !thumbUrlByEntryId[e.id];
         });
-      } catch {
-        // ignore
-      }
-    });
-  }, [pagedEntries]);
+
+        if (need.length === 0) return;
+
+        await Promise.all(
+            need.map(async (e) => {
+            try {
+                const res = await apiFetch(`/api/entries/${e.id}/photos`);
+                const json = await fetchJson(res);
+                if (!res.ok) return;
+
+                // Adjust to match backend response shape if needed
+                const urls = json?.urls || json?.signedUrls || json?.signed_urls || json?.photos || [];
+                const first = Array.isArray(urls) ? urls[0] : null;
+
+                if (first) {
+                setThumbUrlByEntryId((prev) => ({ ...prev, [e.id]: first }));
+                }
+            } catch (err) {
+                console.error("thumbnail fetch failed:", e?.id, err);
+            }
+            })
+        );
+        },
+        [thumbUrlByEntryId]
+    );
+
+        // When carousel entries change, fetch thumbs for those 3 visible entries only
+  useEffect(() => {
+    fetchThumbsForEntries(pagedEntries);
+  }, [pagedEntries, fetchThumbsForEntries]);
 
   const handleChildAvatarChange = useCallback(
     async (e) => {
@@ -273,9 +235,7 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
       if (!res.ok) return alert(json.message || "Failed to delete");
 
       setEntries((prev) => prev.filter((x) => x.id !== entryId));
-      // also clear cached thumb
-      setThumbUrlByEntryId((prev) => {
-        if (!prev[entryId]) return prev;
+    setThumbUrlByEntryId((prev) => {
         const next = { ...prev };
         delete next[entryId];
         return next;
@@ -294,11 +254,22 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
     setCarouselStart(0);
 
     setViewMonthIndex((m) => {
-      if (m > 0) return m - 1;
-      setViewYear((y) => y - 1);
-      return 11;
+      let nextM = m - 1;
+      let nextY = viewYear;
+
+      if (nextM < 0) {
+        nextM = 11;
+        nextY = viewYear - 1;
+      }
+
+      // clamp to min
+      if (nextY < MIN_YEAR) return m;
+      if (nextY === MIN_YEAR && nextM < 0) return m;
+
+      setViewYear(nextY);
+      return nextM;
     });
-  }, []);
+  }, [viewYear]);
 
   const goNextMonth = useCallback(() => {
     setSelectedDateKey(null);
@@ -306,11 +277,21 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
     setCarouselStart(0);
 
     setViewMonthIndex((m) => {
-      if (m < 11) return m + 1;
-      setViewYear((y) => y + 1);
-      return 0;
+      let nextM = m + 1;
+      let nextY = viewYear;
+
+      if (nextM > 11) {
+        nextM = 0;
+        nextY = viewYear + 1;
+      }
+
+      // clamp to max
+      if (nextY > MAX_YEAR) return m;
+
+      setViewYear(nextY);
+      return nextM;
     });
-  }, []);
+  }, [viewYear]);
 
   const centerEntryInCarousel = useCallback(
     (entryId) => {
@@ -339,8 +320,9 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
       // if dateKey belongs to another month, switch month first
       const parsed = parseDateKey(dateKey);
       if (parsed && (parsed.year !== viewYear || parsed.monthIndex !== viewMonthIndex)) {
-        setViewYear(parsed.year);
-        setViewMonthIndex(parsed.monthIndex);
+        const clamped = monthClamp(parsed.year, parsed.monthIndex);
+        setViewYear(clamped.y);
+        setViewMonthIndex(clamped.m);
       }
 
       // pick latest entry of that date
@@ -364,11 +346,15 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
   const [showYearPicker, setShowYearPicker] = useState(false);
 
   const handlePickMonthFromYear = useCallback((year, monthIdx) => {
+    // clamp year range here (even if YearPickerModal shows others)
+    const safeYear = Math.max(MIN_YEAR, Math.min(MAX_YEAR, Number(year) || MAX_YEAR));
+    const safeMonth = Math.max(0, Math.min(11, Number(monthIdx) || 0));
+
     setSelectedDateKey(null);
     setSelectedEntryId(null);
     setCarouselStart(0);
-    setViewYear(year);
-    setViewMonthIndex(monthIdx);
+    setViewYear(safeYear);
+    setViewMonthIndex(safeMonth);
   }, []);
 
   // ===== open viewer modal (read only) =====
@@ -382,28 +368,22 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
     setViewerEntry(null);
   }, []);
 
-  const onBackToParent = useCallback(() => {
-    onGoParent?.();
-  }, [onGoParent]);
+  // title display name
+  const displayName = useMemo(() => {
+    const base = capFirst(child?.name ?? "Zack");
+    return base || "Zack";
+  }, [child?.name]);
 
-  const onLogoutClick = useCallback(() => {
-    onLogout?.();
-  }, [onLogout]);
+  // birthday key for current viewYear (child only for now)
+  const childBirthdayKey = useMemo(() => {
+    return getBirthdayKeyForYear(child?.date_of_birth, viewYear);
+  }, [child?.date_of_birth, viewYear]);
 
   return (
     <div style={styles.page}>
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
-          <div style={styles.topRightActions}>
-            <button style={styles.parentBtn} onClick={onBackToParent}>
-              Parent
-            </button>
-            <button style={styles.logoutBtn} onClick={onLogoutClick}>
-              Logout
-            </button>
-          </div>
-
           <div style={styles.titleRow}>
             <div style={styles.avatarWrapper}>
               <div style={styles.avatarCircle}>
@@ -417,16 +397,16 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
                 )}
               </div>
 
-              <label style={styles.avatarEditBtn} title="Change avatar">
+              <label className="tt-btn" style={styles.avatarEditBtn} title="Change avatar">
                 <input type="file" accept="image/*" style={styles.hiddenFileInput} onChange={handleChildAvatarChange} />
                 ✏️
               </label>
             </div>
 
-            <h1 style={styles.title}>{(child?.name ?? "Zack")}'s Tales</h1>
+            <h1 style={styles.title}>{displayName}'s Tales</h1>
           </div>
 
-          <button style={styles.newEntryBtn} onClick={editor.openNewEntry}>
+          <button className="tt-btn" style={styles.newEntryBtn} onClick={editor.openNewEntry}>
             NEW ENTRY
           </button>
 
@@ -436,6 +416,7 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
         {/* Top carousel */}
         <div style={styles.topCarousel}>
           <button
+            className="tt-arrow"
             style={styles.arrowBtn}
             aria-label="Previous entries"
             onClick={() => setCarouselStart((s) => Math.max(0, s - CARDS_PER_PAGE))}
@@ -454,83 +435,24 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
 
                 if (!e) return <div key={`empty-${index}`} style={styles.cardPlaceholder} />;
 
-                const thumbUrl = thumbUrlByEntryId[e.id] || "";
-                const title = (e.title || "").trim() || "Untitled";
-                const titleInitial = title[0]?.toUpperCase() || "📷";
-                const savedAtText = formatEntryDateTime(e.created_at || e.entry_date);
-
-                const isActive = selectedEntryId === e.id;
-
                 return (
-                  <div
+                <ChildJournalCard
                     key={e.id}
-                    style={{
-                        ...styles.card,
-                        ...(isActive ? styles.cardActive : {}),
-                        ...(isActive ? { borderColor: HIGHLIGHT } : {}),
-                    }}
-                    onClick={() => openViewer(e)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(ev) => {
-                      if (ev.key === "Enter" || ev.key === " ") {
-                        ev.preventDefault();
-                        openViewer(e);
-                      }
-                    }}
-                    title="Click to read"
-                  >
-                    {/* Title ABOVE photo (inside card) */}
-                    <div style={styles.cardTitle} title={title}>
-                      {title}
-                    </div>
-
-                    <div style={styles.thumb}>
-                      {thumbUrl ? (
-                        <img src={thumbUrl} alt="" style={styles.thumbImg} />
-                      ) : (
-                        <div style={styles.thumbPlaceholder}>
-                          <div style={styles.thumbPlaceholderInner}>
-                            <div style={styles.thumbLetter}>{titleInitial}</div>
-                            <div style={styles.thumbHint}>No photo</div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* action buttons (remain on carousel, not inside viewer) */}
-                      <div style={styles.cardActions}>
-                        <button
-                          style={styles.iconBtn}
-                          title="Edit"
-                          onClick={async (ev) => {
-                            ev.stopPropagation();
-                            await editor.openEditEntry(e);
-                          }}
-                        >
-                          ✎
-                        </button>
-
-                        <button
-                          style={styles.iconBtn}
-                          title="Delete"
-                          onClick={(ev) => {
-                            ev.stopPropagation();
-                            handleDeleteEntry(e.id);
-                          }}
-                        >
-                          🗑
-                        </button>
-                      </div>
-                    </div>
-
-                    <div style={styles.cardDate}>{savedAtText}</div>
-                  </div>
+                    entry={e}
+                    isActive={selectedEntryId === e.id}
+                    thumbUrl={thumbUrlByEntryId[e.id] || ""}
+                    styles={styles}
+                    onOpenViewer={openViewer}
+                    onEdit={editor.openEditEntry}
+                    onDelete={handleDeleteEntry}
+                />
                 );
               })
             )}
           </div>
 
           <button
+            className="tt-arrow"
             style={styles.arrowBtn}
             aria-label="Next entries"
             onClick={() =>
@@ -546,23 +468,29 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
 
         {/* Monthly calendar */}
         <ChildJournalCalendar
-            year={viewYear}
-            monthIndex={viewMonthIndex}
-            entriesByDate={entriesByDate}
-            selectedDateKey={selectedDateKey}
-            highlightColor={HIGHLIGHT}
-            onPrevMonth={goPrevMonth}
-            onNextMonth={goNextMonth}
-            onSelectDate={onSelectCalendarDate}
-            onOpenYearPicker={() => setShowYearPicker(true)}
+          year={viewYear}
+          monthIndex={viewMonthIndex}
+          entriesByDate={entriesByDate}
+          selectedDateKey={selectedDateKey}
+          highlightColor={HIGHLIGHT}
+          onPrevMonth={goPrevMonth}
+          onNextMonth={goNextMonth}
+          onSelectDate={onSelectCalendarDate}
+          onOpenYearPicker={() => setShowYearPicker(true)}
+          minYear={MIN_YEAR}
+          maxYear={MAX_YEAR}
+          birthdayMarks={
+            childBirthdayKey
+              ? [
+                  {
+                    key: childBirthdayKey,
+                    color: CHILD_BDAY_COLOR,
+                    label: "Child birthday",
+                  },
+                ]
+              : []
+          }
         />
-
-        {/* Year button below calendar */}
-        <div style={styles.yearBtnRow}>
-          <button style={styles.yearBtn} onClick={() => setShowYearPicker(true)}>
-            Year
-          </button>
-        </div>
       </div>
 
       {/* Read-only viewer modal */}
@@ -623,6 +551,7 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
 
                           <button
                             type="button"
+                            className="tt-btn"
                             style={modalStyles.photoRemoveBtn}
                             onClick={(e) => {
                               e.preventDefault();
@@ -642,11 +571,11 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
                 </div>
 
                 <div style={modalStyles.actions}>
-                  <button style={modalStyles.primary} disabled={editor.savingEntry} onClick={editor.save}>
+                  <button className="tt-btn" style={modalStyles.primary} disabled={editor.savingEntry} onClick={editor.save}>
                     {editor.savingEntry ? "Saving..." : editor.editingEntry ? "Save Changes" : "Record Entry"}
                   </button>
 
-                  <button style={modalStyles.secondary} onClick={editor.resetEntryForm}>
+                  <button className="tt-btn" style={modalStyles.secondary} onClick={editor.resetEntryForm}>
                     Cancel
                   </button>
                 </div>

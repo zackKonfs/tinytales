@@ -60,7 +60,7 @@ router.get("/children", requireAuth, async (req, res) => {
 // POST /api/children
 router.post("/children", requireAuth, async (req, res) => {
   try {
-    if (!mustAdmin(res)) return;
+    if (!mustAdmin(req, res)) return;
 
     const name = (req.body?.name ?? "").trim();
     const date_of_birth = req.body?.date_of_birth;
@@ -95,7 +95,7 @@ router.post("/children", requireAuth, async (req, res) => {
 // PATCH /api/children/:id/active
 router.patch("/children/:id/active", requireAuth, async (req, res) => {
   try {
-    if (!mustAdmin(res)) return;
+    if (!mustAdmin(req, res)) return;
 
     const childId = Number(req.params.id);
     if (!Number.isFinite(childId)) {

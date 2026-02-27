@@ -137,9 +137,15 @@ router.put("/:entryId", requireAuth, async (req, res) => {
   if (!own.ok) return res.status(own.status).json({ ok: false, message: own.message });
   if (!mustAdmin(res)) return;
 
+  // ✅ IMPORTANT FIX:
+  // Only update entry_date if frontend actually provided it.
+  // This prevents old entries (eg Jan) from jumping to "today" (Feb) after editing.
+  const patch = { title: t, content: c };
+  if (entry_date) patch.entry_date = safeDate(entry_date);
+
   const { data: updated, error: updErr } = await supabaseAdmin
     .from("entries")
-    .update({ title: t, content: c, entry_date: safeDate(entry_date) })
+    .update(patch)
     .eq("id", entryId)
     .select("id, child_id, title, content, entry_date, created_at, photo_paths")
     .single();
@@ -171,8 +177,8 @@ router.patch("/:entryId", requireAuth, async (req, res) => {
     .single();
 
   if (upErr) return res.status(500).json({ ok: false, message: upErr.message });
-    return res.json({ ok: true, entry: updated });
-  });
+  return res.json({ ok: true, entry: updated });
+});
 
 // List entries by child
 router.get("/children/:id/entries", requireAuth, async (req, res) => {
@@ -204,6 +210,7 @@ router.patch("/:entryId/photo-paths", requireAuth, async (req, res) => {
   const incoming = req.body?.photo_paths;
   const paths = Array.isArray(incoming) ? incoming : [];
   console.log("PATCH PHOTO PATHS:", { entryId, paths });
+
   if (paths.length > 3) {
     return res.status(400).json({ ok: false, message: "Max 3 photos per entry" });
   }
@@ -221,8 +228,8 @@ router.patch("/:entryId/photo-paths", requireAuth, async (req, res) => {
     .single();
 
   if (updErr) return res.status(500).json({ ok: false, message: updErr.message });
-    return res.json({ ok: true, entry: updated });
-  });
+  return res.json({ ok: true, entry: updated });
+});
 
 // Soft delete entry
 router.patch("/:entryId/deactivate", requireAuth, async (req, res) => {
@@ -260,7 +267,13 @@ router.post("/:entryId/photos", requireAuth, upload.array("photos", 3), async (r
   if (!own.ok) return res.status(own.status).json({ ok: false, message: own.message });
 
   const files = req.files || [];
-  console.log("UPLOAD PHOTOS:", { entryId, count: files.length, types: files.map(f => f.mimetype), sizes: files.map(f => f.size) });
+  console.log("UPLOAD PHOTOS:", {
+    entryId,
+    count: files.length,
+    types: files.map((f) => f.mimetype),
+    sizes: files.map((f) => f.size),
+  });
+
   if (files.length === 0) return res.status(400).json({ ok: false, message: "No photos uploaded" });
 
   const existing = own.entryRow.photo_paths || [];
@@ -280,9 +293,9 @@ router.post("/:entryId/photos", requireAuth, upload.array("photos", 3), async (r
     const safeName = (f.originalname || `photo_${i}.jpg`).replace(/[^a-zA-Z0-9._-]/g, "_");
     const path = `${entryId}/${Date.now()}_${i}_${safeName}`;
 
-    const { error: upErr } = await supabaseAdmin.storage
-      .from("entry-photos")
-      .upload(path, f.buffer, { contentType: f.mimetype });
+    const { error: upErr } = await supabaseAdmin.storage.from("entry-photos").upload(path, f.buffer, {
+      contentType: f.mimetype,
+    });
 
     if (upErr) {
       console.log("STORAGE UPLOAD ERROR:", upErr);
@@ -320,9 +333,7 @@ router.get("/:entryId/photos", requireAuth, async (req, res) => {
   const paths = own.entryRow.photo_paths || [];
   if (paths.length === 0) return res.json({ ok: true, urls: [] });
 
-  const { data, error } = await supabaseAdmin.storage
-    .from("entry-photos")
-    .createSignedUrls(paths, 60 * 60);
+  const { data, error } = await supabaseAdmin.storage.from("entry-photos").createSignedUrls(paths, 60 * 60);
 
   if (error) return res.status(500).json({ ok: false, message: error.message });
 

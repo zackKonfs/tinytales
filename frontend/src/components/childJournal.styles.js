@@ -18,7 +18,9 @@ export const styles = {
     paddingTop: 20,
   },
   topRightActions: { position: "absolute", top: 0, right: 0, display: "flex", gap: 16 },
+
   title: { fontSize: 64, margin: 0, letterSpacing: 1 },
+
   newEntryBtn: {
     marginTop: 16,
     padding: "12px 28px",
@@ -29,20 +31,28 @@ export const styles = {
     fontWeight: 700,
     cursor: "pointer",
     boxShadow: "0 6px 0 rgba(0,0,0,0.12)",
+    transition: "transform 120ms ease, filter 120ms ease",
   },
   today: { marginTop: 14, opacity: 0.9 },
 
   /* ===== carousel ===== */
   topCarousel: { display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginTop: 22 },
+
+  // Make arrow button NOT look like "circle sitting on arrow"
   arrowBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
+    minWidth: 46,
+    height: 46,
+    borderRadius: 14,
     border: "1px solid rgba(0,0,0,0.12)",
     background: "rgba(255,255,255,0.65)",
     cursor: "pointer",
-    fontSize: 22,
+    fontSize: 26,
+    fontWeight: 900,
+    lineHeight: "46px",
+    transition: "transform 120ms ease, filter 120ms ease",
+    userSelect: "none",
   },
+
   cardsRow: {
     display: "flex",
     gap: 16,
@@ -62,20 +72,41 @@ export const styles = {
     boxShadow: "0 10px 20px rgba(0,0,0,0.08)",
     cursor: "pointer",
     userSelect: "none",
+    transition: "transform 120ms ease, filter 120ms ease",
   },
   cardActive: {
     outline: "3px solid rgba(244,178,79,0.20)",
   },
+
+  // NEW: title row that holds title + action icons
+  cardTitleRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 8,
+  },
+
   cardTitle: {
     fontWeight: 900,
     fontSize: 14,
     textAlign: "left",
-    marginBottom: 8,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     color: "#245a52",
+    flex: 1,
+    minWidth: 0,
   },
+
+  // NEW: action icons beside title (not covering photo)
+  cardTitleActions: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  },
+
   cardPlaceholder: {
     width: 180,
     borderRadius: 14,
@@ -135,15 +166,19 @@ export const styles = {
     fontWeight: 700,
   },
 
-  // ACTION buttons moved down + right (away from photo center)
-  cardActions: { position: "absolute", right: 8, bottom: 8, display: "flex", gap: 8 },
+  // icon buttons
   iconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 999,
+    width: 30,
+    height: 30,
+    borderRadius: 12,
     border: "1px solid rgba(0,0,0,0.12)",
     background: "rgba(255,255,255,0.90)",
     cursor: "pointer",
+    transition: "transform 120ms ease, filter 120ms ease",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 0,
   },
 
   cardDate: { marginTop: 10, fontSize: 14, opacity: 0.9 },
@@ -173,6 +208,7 @@ export const styles = {
     fontWeight: 700,
     cursor: "pointer",
     boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+    transition: "transform 120ms ease, filter 120ms ease",
   },
   logoutBtn: {
     padding: "12px 18px",
@@ -183,19 +219,34 @@ export const styles = {
     fontWeight: 700,
     cursor: "pointer",
     boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
+    transition: "transform 120ms ease, filter 120ms ease",
   },
 
   titleRow: { display: "flex", alignItems: "center", justifyContent: "center", gap: 12 },
+
   avatarWrapper: { position: "relative", width: 100, height: 85 },
-  avatarCircle: { width: 100, height: 100, borderRadius: "50%", background: "#eee", overflow: "hidden" },
+
+  // add fun color border around avatar (task #13)
+  avatarCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: "50%",
+    background: "#eee",
+    overflow: "hidden",
+    border: "4px solid rgba(255,255,255,0.9)",
+    boxShadow:
+      "0 0 0 4px rgba(244,178,79,0.55), 0 0 0 8px rgba(36,90,82,0.25), 0 14px 26px rgba(0,0,0,0.12)",
+  },
+
   avatarImage: { width: "100%", height: "100%", objectFit: "cover" },
+
   avatarEditBtn: {
     position: "absolute",
     bottom: -8,
     right: -4,
-    width: 24,
-    height: 24,
-    borderRadius: "50%",
+    width: 28,
+    height: 28,
+    borderRadius: 12,
     background: "#ffffff",
     border: "1px solid #ddd",
     display: "flex",
@@ -204,7 +255,10 @@ export const styles = {
     cursor: "pointer",
     boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
     fontSize: 12,
+    transition: "transform 120ms ease, filter 120ms ease",
+    userSelect: "none",
   },
+
   hiddenFileInput: { display: "none" },
 };
 
@@ -268,6 +322,7 @@ export const modalStyles = {
     background: "#f4b24f",
     cursor: "pointer",
     fontWeight: 700,
+    transition: "transform 120ms ease, filter 120ms ease",
   },
   secondary: {
     minWidth: 120,
@@ -277,6 +332,7 @@ export const modalStyles = {
     background: "rgba(255,255,255,0.75)",
     cursor: "pointer",
     fontWeight: 700,
+    transition: "transform 120ms ease, filter 120ms ease",
   },
   bottomSection: { marginTop: "auto" },
   photoSlot: {
@@ -291,6 +347,7 @@ export const modalStyles = {
     cursor: "pointer",
     position: "relative",
     overflow: "hidden",
+    transition: "transform 120ms ease, filter 120ms ease",
   },
   photoImg: { width: "100%", height: "100%", objectFit: "cover", display: "block" },
   photoRemoveBtn: {

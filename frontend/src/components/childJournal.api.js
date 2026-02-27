@@ -5,17 +5,34 @@ export async function fetchJson(res) {
   return json;
 }
 
-function todayIsoDate() {
-  return new Date().toISOString().slice(0, 10);
+/**
+ * IMPORTANT:
+ * Use LOCAL date instead of toISOString() (UTC),
+ * otherwise Singapore time can shift the day/month.
+ */
+function todayLocalDateKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 export async function saveEntryCore({ editingEntry, childId, title, content }) {
-  const url = editingEntry ? `/api/entries/${editingEntry.id}` : "/api/entries";
+  const url = editingEntry
+    ? `/api/entries/${editingEntry.id}`
+    : "/api/entries";
+
   const method = editingEntry ? "PUT" : "POST";
 
   const body = editingEntry
-    ? { title, content, entry_date: todayIsoDate() }
-    : { child_id: childId, title, content, entry_date: todayIsoDate() };
+    ? { title, content }
+    : {
+        child_id: childId,
+        title,
+        content,
+        entry_date: todayLocalDateKey(), // ✅ local date
+      };
 
   const res = await apiFetch(url, {
     method,
@@ -35,6 +52,7 @@ export async function patchPhotoPaths(entryId, photo_paths) {
   });
 
   const json = await fetchJson(res);
+
   if (!res.ok) {
     throw new Error(json.message || json.error || "Failed to update photo paths");
   }
@@ -55,6 +73,7 @@ export async function uploadNewEntryPhotos(entryId, entryPhotos) {
   });
 
   const json = await fetchJson(res);
+
   if (!res.ok) {
     throw new Error(json.message || json.error || "Photo upload failed");
   }
@@ -68,6 +87,7 @@ export async function loadSignedPhotoUrls(entryId) {
   });
 
   const json = await fetchJson(res);
+
   if (!res.ok) {
     throw new Error(json.message || json.error || "Failed to load photo urls");
   }

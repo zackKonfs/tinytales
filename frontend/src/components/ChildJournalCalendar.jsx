@@ -12,7 +12,10 @@ import { useMemo } from "react";
  * - onPrevMonth: () => void
  * - onNextMonth: () => void
  * - onSelectDate: (dateKey: string) => void
- * - onOpenYearPicker?: () => void         // optional: if you want a Year button inside calendar header
+ * - onOpenYearPicker?: () => void
+ * - minYear?: number (default 1950)
+ * - maxYear?: number (default current year)
+ * - birthdayMarks?: Array<{ key: string, color: string, label?: string }>
  */
 export default function ChildJournalCalendar({
   year,
@@ -24,11 +27,25 @@ export default function ChildJournalCalendar({
   onNextMonth,
   onSelectDate,
   onOpenYearPicker,
+  minYear = 1950,
+  maxYear = new Date().getFullYear(),
+  birthdayMarks = [],
 }) {
   const monthLabel = useMemo(() => {
     const d = new Date(year, monthIndex, 1);
     return d.toLocaleString("en-US", { month: "long", year: "numeric" });
   }, [year, monthIndex]);
+
+  const disablePrev = useMemo(() => year === minYear && monthIndex === 0, [year, monthIndex, minYear]);
+  const disableNext = useMemo(() => year === maxYear && monthIndex === 11, [year, monthIndex, maxYear]);
+
+  const birthdayMap = useMemo(() => {
+    const m = {};
+    for (const b of birthdayMarks || []) {
+      if (b?.key) m[b.key] = b;
+    }
+    return m;
+  }, [birthdayMarks]);
 
   const weeks = useMemo(() => {
     const first = new Date(year, monthIndex, 1);
@@ -71,11 +88,14 @@ export default function ChildJournalCalendar({
       const key = `${cellYear}-${String(cellMonth + 1).padStart(2, "0")}-${String(displayDay).padStart(2, "0")}`;
       const count = entriesByDate?.[key]?.length || 0;
 
+      const bday = birthdayMap[key] || null;
+
       cells.push({
         key,
         inMonth,
         displayDay,
         count,
+        bday,
       });
     }
 
@@ -85,14 +105,21 @@ export default function ChildJournalCalendar({
       rows.push(cells.slice(r * 7, r * 7 + 7));
     }
     return rows;
-  }, [year, monthIndex, entriesByDate]);
+  }, [year, monthIndex, entriesByDate, birthdayMap]);
 
   const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
     <div style={ui.wrap}>
       <div style={ui.header}>
-        <button style={ui.navBtn} onClick={onPrevMonth} aria-label="Previous month">
+        <button
+          className="tt-arrow"
+          style={{ ...ui.navBtn, ...(disablePrev ? ui.navBtnDisabled : {}) }}
+          onClick={disablePrev ? undefined : onPrevMonth}
+          aria-label="Previous month"
+          disabled={disablePrev}
+          title={disablePrev ? `Min year is ${minYear}` : "Previous month"}
+        >
           ‹
         </button>
 
@@ -100,13 +127,20 @@ export default function ChildJournalCalendar({
           <div style={ui.monthLabel}>{monthLabel}</div>
 
           {onOpenYearPicker ? (
-            <button style={ui.yearBtn} onClick={onOpenYearPicker} title="Pick year">
+            <button className="tt-btn" style={ui.yearBtn} onClick={onOpenYearPicker} title="Pick year">
               Year
             </button>
           ) : null}
         </div>
 
-        <button style={ui.navBtn} onClick={onNextMonth} aria-label="Next month">
+        <button
+          className="tt-arrow"
+          style={{ ...ui.navBtn, ...(disableNext ? ui.navBtnDisabled : {}) }}
+          onClick={disableNext ? undefined : onNextMonth}
+          aria-label="Next month"
+          disabled={disableNext}
+          title={disableNext ? `Max year is ${maxYear}` : "Next month"}
+        >
           ›
         </button>
       </div>
@@ -124,15 +158,21 @@ export default function ChildJournalCalendar({
             const hasEntries = cell.count > 0;
 
             const border = isSelected ? `2px solid ${highlightColor}` : "1px solid rgba(0,0,0,0.10)";
+
             const bg = isSelected
               ? "rgba(255,255,255,0.85)"
+              : cell.bday
+              ? `${cell.bday.color}22`
               : hasEntries
               ? "rgba(244,178,79,0.15)"
               : "rgba(255,255,255,0.65)";
 
+            const dotColor = cell.bday ? cell.bday.color : highlightColor;
+
             return (
               <button
                 key={`${rIdx}-${cell.key}`}
+                className="tt-btn"
                 style={{
                   ...ui.cell,
                   border,
@@ -140,19 +180,31 @@ export default function ChildJournalCalendar({
                   opacity: cell.inMonth ? 1 : 0.38,
                 }}
                 onClick={() => onSelectDate?.(cell.key)}
-                title={hasEntries ? `${cell.count} entr${cell.count === 1 ? "y" : "ies"}` : ""}
+                title={
+                  cell.bday
+                    ? cell.bday.label || "Birthday"
+                    : hasEntries
+                    ? `${cell.count} entr${cell.count === 1 ? "y" : "ies"}`
+                    : ""
+                }
               >
                 <div style={ui.cellTop}>
                   <div style={ui.dayNum}>{cell.displayDay}</div>
 
                   {hasEntries ? (
-                    <div style={{ ...ui.badge, borderColor: highlightColor, color: "#245a52" }}>
-                      {cell.count}
+                    <div style={{ ...ui.badge, borderColor: highlightColor, color: "#245a52" }}>{cell.count}</div>
+                  ) : cell.bday ? (
+                    <div style={{ ...ui.bdayBadge, borderColor: cell.bday.color, color: cell.bday.color }}>
+                      🎂
                     </div>
                   ) : null}
                 </div>
 
-                {hasEntries ? <div style={{ ...ui.dot, background: highlightColor }} /> : <div style={ui.dotSpacer} />}
+                {(hasEntries || cell.bday) ? (
+                  <div style={{ ...ui.dot, background: dotColor }} />
+                ) : (
+                  <div style={ui.dotSpacer} />
+                )}
               </button>
             );
           })
@@ -192,11 +244,18 @@ const ui = {
   navBtn: {
     width: 38,
     height: 38,
-    borderRadius: 999,
+    borderRadius: 14,
     border: "1px solid rgba(0,0,0,0.12)",
     background: "rgba(255,255,255,0.75)",
     cursor: "pointer",
     fontSize: 18,
+    fontWeight: 900,
+    transition: "transform 120ms ease, filter 120ms ease",
+  },
+  navBtnDisabled: {
+    opacity: 0.45,
+    cursor: "not-allowed",
+    filter: "grayscale(0.3)",
   },
   yearBtn: {
     padding: "8px 12px",
@@ -206,6 +265,7 @@ const ui = {
     cursor: "pointer",
     fontWeight: 800,
     fontSize: 12,
+    transition: "transform 120ms ease, filter 120ms ease",
   },
   grid: {
     display: "grid",
@@ -231,6 +291,7 @@ const ui = {
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
+    transition: "transform 120ms ease, filter 120ms ease",
   },
   cellTop: {
     display: "flex",
@@ -250,6 +311,19 @@ const ui = {
     borderRadius: 999,
     border: "1px solid rgba(0,0,0,0.15)",
     background: "rgba(255,255,255,0.9)",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 12,
+    fontWeight: 900,
+  },
+  bdayBadge: {
+    minWidth: 24,
+    height: 22,
+    padding: "0 6px",
+    borderRadius: 999,
+    border: "1px solid rgba(0,0,0,0.15)",
+    background: "rgba(255,255,255,0.95)",
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",

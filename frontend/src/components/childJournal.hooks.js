@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../api/client";
 import {
   fetchJson,
@@ -28,6 +28,26 @@ function revokeAllPreviews(entryPhotos) {
   (entryPhotos || []).forEach((p) => {
     if (p?.file instanceof File && p?.previewUrl) URL.revokeObjectURL(p.previewUrl);
   });
+}
+
+// ✅ Merge helper: do not allow null/undefined from patch responses to wipe important fields
+function mergeEntryNonNull(prevEntry, patch) {
+  const next = { ...prevEntry };
+
+  if (patch && typeof patch === "object") {
+    Object.entries(patch).forEach(([k, v]) => {
+      if (v !== null && v !== undefined) next[k] = v;
+    });
+  }
+
+  // photo_paths: keep array if provided; otherwise keep previous (or default to [])
+  if (Array.isArray(patch?.photo_paths)) {
+    next.photo_paths = patch.photo_paths;
+  } else if (!Array.isArray(next.photo_paths)) {
+    next.photo_paths = [];
+  }
+
+  return next;
 }
 
 /* =========================
@@ -212,14 +232,23 @@ export function useEntryEditor({ childId, setEntries }) {
         return;
       }
 
+      // Create
       if (!editingEntry) {
         setEntries((prev) => [json.entry, ...prev]);
+      }
+
+      // ✅ Edit: always merge returned entry safely (avoid wiping fields)
+      if (editingEntry) {
+        setEntries((prev) =>
+          prev.map((x) => (x.id === json.entry.id ? mergeEntryNonNull(x, json.entry) : x))
+        );
       }
 
       const entryId = json.entry.id;
 
       if (entryPhotos.length > 0) {
         let keptExisting = [];
+
         if (editingEntry) {
           keptExisting = entryPhotos
             .filter((p) => !p.file)
@@ -227,7 +256,11 @@ export function useEntryEditor({ childId, setEntries }) {
             .filter(Boolean)
             .slice(0, 3);
 
-          await patchPhotoPaths(entryId, keptExisting);
+          // Keep existing paths (server may return partial object)
+          const keptPatch = await patchPhotoPaths(entryId, keptExisting);
+          setEntries((prev) =>
+            prev.map((x) => (x.id === entryId ? mergeEntryNonNull(x, keptPatch) : x))
+          );
         }
 
         const uploadedPaths = await uploadNewEntryPhotos(entryId, entryPhotos);
@@ -236,10 +269,18 @@ export function useEntryEditor({ childId, setEntries }) {
         const finalPaths = [...keptExisting, ...newUploadedOnly].slice(0, 3);
 
         const updatedEntry = await patchPhotoPaths(entryId, finalPaths);
-        setEntries((prev) => prev.map((x) => (x.id === updatedEntry.id ? updatedEntry : x)));
+
+        // ✅ Key fix: merge safely
+        setEntries((prev) =>
+          prev.map((x) => (x.id === entryId ? mergeEntryNonNull(x, updatedEntry) : x))
+        );
       } else if (editingEntry) {
         const updatedEntry = await patchPhotoPaths(entryId, []);
-        setEntries((prev) => prev.map((x) => (x.id === updatedEntry.id ? updatedEntry : x)));
+
+        // ✅ Key fix: merge safely
+        setEntries((prev) =>
+          prev.map((x) => (x.id === entryId ? mergeEntryNonNull(x, updatedEntry) : x))
+        );
       }
 
       resetEntryForm();
@@ -270,4 +311,69 @@ export function useEntryEditor({ childId, setEntries }) {
     removePhoto,
     save,
   };
+}
+
+// =========================
+// Thumbnails (signed urls)
+// =========================
+export function useEntryThumbs({ pagedEntries }) {
+  const [thumbUrlByEntryId, setThumbUrlByEntryId] = useState({});
+  const thumbRef = useRef({});
+
+  // keep ref in sync
+  useEffect(() => {
+    thumbRef.current = thumbUrlByEntryId;
+  }, [thumbUrlByEntryId]);
+
+
+  // 2) fetch signed urls for visible entries (only if missing in cache)
+  useEffect(() => {
+    const list = (pagedEntries || []).filter(Boolean);
+    if (list.length === 0) return;
+
+    let cancelled = false;
+
+    (async () => {
+      await Promise.all(
+        list.map(async (e) => {
+          const hasPhotos = Array.isArray(e.photo_paths) && e.photo_paths.length > 0;
+          if (!hasPhotos) return;
+          if (thumbRef.current[e.id]) return;
+
+          try {
+            const res = await apiFetch(`/api/entries/${e.id}/photos`);
+            const json = await fetchJson(res);
+            if (!res.ok) return;
+
+            const first = json?.urls?.[0];
+            if (!first) return;
+
+            if (cancelled) return;
+
+            setThumbUrlByEntryId((prev) => {
+              if (prev[e.id]) return prev;
+              return { ...prev, [e.id]: first };
+            });
+          } catch {
+            // ignore
+          }
+        })
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pagedEntries]);
+
+  const clearThumb = useCallback((entryId) => {
+    setThumbUrlByEntryId((prev) => {
+      if (!prev[entryId]) return prev;
+      const next = { ...prev };
+      delete next[entryId];
+      return next;
+    });
+  }, []);
+
+  return { thumbUrlByEntryId, clearThumb };
 }

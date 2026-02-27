@@ -1,55 +1,67 @@
 import EnterPage from "../components/EnterPage";
 import LoginModal from "../components/LoginModal";
-import YourTales from "../components/YourTales";
 import AccountPickerModal from "../components/AccountPickerModal";
 import ParentAccount from "../components/ParentAccount";
+import ChildJournalPage from "../components/ChildJournalPage";
+import AboutPage from "../components/AboutPage";
+import ContactPage from "../components/ContactPage";
+import AppHeader from "../components/AppHeader";
+
 import { loadSession, clearSession } from "../auth/session";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api/client";
-import ChildJournalPage from "../components/ChildJournalPage";
+
+//import "../styles/tt-ui.css";
 
 const PAGES = {
   entry: EnterPage,
   child: ChildJournalPage,
   parent: ParentAccount,
+  about: AboutPage,
+  contact: ContactPage,
 };
 
 export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin, username, setUsername }) {
   const Page = PAGES[checkPage] ?? EnterPage;
+
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [isBooting, setIsBooting] = useState(true);
   const [selectedChild, setSelectedChild] = useState(null);
   const [childrenList, setChildrenList] = useState([]);
 
+  function go(page) {
+    setCheckPage(page);
+  }
+
+  function logoutEverywhere() {
+    clearSession();
+    localStorage.removeItem("tt_selectedChild");
+    setSelectedChild(null);
+    setUsername("");
+    setCheckPage("entry");
+  }
+
   const pageProps = {
     entry: { setLogin: () => setShowLogin(true) },
+
+    about: {},
+    contact: {},
+
     child: {
       username,
       child: selectedChild,
-
       onGoParent: () => {
         localStorage.removeItem("tt_selectedChild");
         setSelectedChild(null);
         setCheckPage("parent");
       },
-
-      onLogout: () => {
-        clearSession();
-        localStorage.removeItem("tt_selectedChild");
-        setSelectedChild(null);
-        setUsername("");
-        setCheckPage("entry");
-      },
+      onLogout: logoutEverywhere,
     },
+
     parent: {
-    parentName: username || "Parent",
+      parentName: username || "Parent",
       parentEmail: username || "",
-      onLogout: () => {
-        clearSession();
-        setUsername("");
-        setCheckPage("entry");
-      },
-      onCreateChild: () => console.log("create child clicked"),
+      onLogout: logoutEverywhere,
       onSelectChild: (child) => {
         setSelectedChild(child);
         localStorage.setItem("tt_selectedChild", JSON.stringify(child));
@@ -59,18 +71,17 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
   };
 
   function handleLoginSuccess(payload) {
-    console.log("Logged in user:", payload);
     setUsername(payload.user.email);
     setShowLogin(false);
     setShowAccountPicker(true);
     setCheckPage("entry");
   }
 
- useEffect(() => {
+  useEffect(() => {
     async function bootAuth() {
       const saved = loadSession();
 
-     if (!saved?.user?.email) {
+      if (!saved?.user?.email) {
         setIsBooting(false);
         return;
       }
@@ -87,6 +98,7 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
         }
 
         setUsername(saved.user.email);
+
         const savedChildRaw = localStorage.getItem("tt_selectedChild");
         if (savedChildRaw) {
           try {
@@ -97,12 +109,12 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
         }
 
         const last = localStorage.getItem("tt_lastPage");
-          const safeLast = last && last !== "entry" ? last : "parent";
+        const safeLast = last && !["entry"].includes(last) ? last : "parent";
 
-          if (safeLast === "child" && !savedChildRaw) {
-            setCheckPage("parent");
-          } else {
-            setCheckPage(safeLast);
+        if (safeLast === "child" && !savedChildRaw) {
+          setCheckPage("parent");
+        } else {
+          setCheckPage(safeLast);
         }
 
         setIsBooting(false);
@@ -131,12 +143,10 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
       try {
         const res = await apiFetch("/api/children");
         const json = await res.json().catch(() => ({}));
-
         if (!alive) return;
 
         if (res.ok) {
-          const children = json.children ?? [];
-          setChildrenList(children);
+          setChildrenList(json.children ?? []);
         } else {
           setChildrenList([]);
         }
@@ -156,14 +166,23 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
     return <div style={{ padding: 24, opacity: 0.7 }}>Loading...</div>;
   }
 
+  const showHeader = checkPage !== "entry"; // keep entry page clean
+
   return (
     <main>
-      <Page {...(pageProps[checkPage] ?? {})} />
-      {showLogin && (
-        <LoginModal
-          onClose={() => setShowLogin(false)}
-          onLoginSuccess={handleLoginSuccess}
+      {showHeader ? (
+        <AppHeader
+          onGoAbout={() => go("about")}
+          onGoContact={() => go("contact")}
+          onGoParent={checkPage !== "parent" ? () => go("parent") : undefined}
+          onLogout={username ? logoutEverywhere : undefined}
         />
+      ) : null}
+
+      <Page {...(pageProps[checkPage] ?? {})} />
+
+      {showLogin && (
+        <LoginModal onClose={() => setShowLogin(false)} onLoginSuccess={handleLoginSuccess} />
       )}
 
       <AccountPickerModal
@@ -177,7 +196,6 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
         onSelectChild={(child) => {
           setSelectedChild(child);
           localStorage.setItem("tt_selectedChild", JSON.stringify(child));
-
           setShowAccountPicker(false);
           setCheckPage("child");
         }}
