@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "../api/client";
 import CreateChildModal from "./CreateChildModal";
-
+import { useNavigate } from "react-router-dom";
 
 export default function ParentAccount({
-  parentName = "Zack",
+  parentName,
   onLogout,
-  //onCreateChild,
   onSelectChild,
+  parentEmail,
 }) {
 
     const [showCreateChild, setShowCreateChild] = useState(false);
@@ -17,6 +17,10 @@ export default function ParentAccount({
     const [parentAvatarUrl, setParentAvatarUrl] = useState("");
     const [confirmChild, setConfirmChild] = useState(null); // will store the child object {id,name,...}
     const [successMsg, setSuccessMsg] = useState("");       // for success popup text
+    // const email = user?.email || parent?.email; // pick the one you actually have
+    // const isSuperAdmin = isSuperAdminEmail(email);
+    const navigate = useNavigate();
+    const [displayName, setDisplayName] = useState(parentName || "Parent");
 
     function getInitials(name = "") {
         const trimmed = name.trim();
@@ -110,16 +114,19 @@ export default function ParentAccount({
     loadChildren();
 
     async function loadParentProfile() {
-            const res = await apiFetch("/api/parent/profile");
-            const json = await res.json();
+        const res = await apiFetch("/api/parent/profile");
+        const json = await res.json().catch(() => ({}));
 
-            if (res.ok && json.ok) {
-                setParentAvatarUrl(json.profile.avatar_url || "");
-            }
+        if (res.ok && json.ok) {
+            setParentAvatarUrl(json.profile.avatar_url || "");
+            setDisplayName(json.profile.username || parentName || "Parent");
         }
+    }
 
     loadParentProfile();
-    }, []);
+    }, [parentName]);
+
+    const SUPERADMIN_EMAIL = "zack.xu@hotmail.com";
 
   return (
     <div style={styles.page}>
@@ -175,13 +182,22 @@ export default function ParentAccount({
                         ✏️
                     </label>
                 </div>
-                <div style={styles.greeting}>Hello, {parentName} (Parent)</div>
+                <div style={styles.greeting}>Hello, {displayName} (Parent)</div>
                 </div>
 
                 <div style={styles.actions}>
-                <button style={styles.logoutBtn} onClick={onLogout}>
-                    Logout
-                </button>
+                    {parentEmail === "zack.xu@hotmail.com" && (
+                        <button
+                            style={styles.devBtn}
+                            onClick={() => navigate("/dev")}
+                        >
+                            Dev Panel
+                        </button>
+                    )}
+
+                    <button style={styles.logoutBtn} onClick={onLogout}>
+                        Logout
+                    </button>
                 </div>
             </header>
         </div>
@@ -527,5 +543,13 @@ const styles = {
         height: "100%",
         objectFit: "cover",
         display: "block",
+    },
+    devBtn: {
+        padding: "12px 18px",
+        borderRadius: 14,
+        border: "1px solid rgba(0,0,0,0.08)",
+        background: "#fff",
+        cursor: "pointer",
+        fontWeight: 700,
     },
 };

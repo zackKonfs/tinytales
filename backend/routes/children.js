@@ -15,11 +15,18 @@ function rls(req) {
   });
 }
 
-function mustAdmin(res) {
+function mustAdmin(req, res) {
   if (!supabaseAdmin) {
     res.status(500).json({ ok: false, message: "supabaseAdmin missing (SERVICE ROLE KEY not set)" });
     return false;
   }
+
+  const email = (req.user?.email || "").toLowerCase();
+  if (email !== "zack.xu@hotmail.com") {
+    res.status(403).json({ ok: false, message: "Forbidden" });
+    return false;
+  }
+
   return true;
 }
 

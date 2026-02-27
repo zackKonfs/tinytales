@@ -8,6 +8,7 @@ import childrenRoutes from "./routes/children.js";
 import avatarRoutes from "./routes/avatar.js";
 import parentRoutes from "./routes/parent.js";
 import entriesRoutes from "./routes/entries.js";
+import devRoutes from "./routes/dev.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,6 +34,7 @@ app.use("/api", childrenRoutes);
 app.use("/api", avatarRoutes);
 app.use("/api", parentRoutes);
 app.use("/api/entries", entriesRoutes);
+app.use("/api", devRoutes);
 
 // --- 404 fallback (helps debugging) ---
 app.use((req, res) => {

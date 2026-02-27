@@ -42,7 +42,8 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
       },
     },
     parent: {
-      parentName: "Zack",
+    parentName: username || "Parent",
+      parentEmail: username || "",
       onLogout: () => {
         clearSession();
         setUsername("");

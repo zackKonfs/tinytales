@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Main from "./components/Main";
+import DevPanel from "./components/Devpanel";
 
 export default function App() {
   const [checkPage, setCheckPage] = useState("entry");
@@ -7,13 +10,29 @@ export default function App() {
   const [username, setUsername] = useState("");
 
   return (
-    <Main
-      checkPage={checkPage}
-      setCheckPage={setCheckPage}
-      showLogin={showLogin}
-      setShowLogin={setShowLogin}
-      username={username}
-      setUsername={setUsername}
-    />
+    <BrowserRouter>
+      <Routes>
+        {/* Main App */}
+        <Route
+          path="/*"
+          element={
+            <Main
+              checkPage={checkPage}
+              setCheckPage={setCheckPage}
+              showLogin={showLogin}
+              setShowLogin={setShowLogin}
+              username={username}
+              setUsername={setUsername}
+            />
+          }
+        />
+
+        {/* Dev Panel */}
+        <Route
+          path="/dev"
+          element={<DevPanel username={username} />}
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }
