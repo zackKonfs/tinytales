@@ -570,6 +570,7 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
 
       {/* Year picker modal */}
       <YearPickerModal
+        key={`${showYearPicker}-${viewYear}-${viewMonthIndex}`}
         isOpen={showYearPicker}
         initialYear={viewYear}
         onClose={() => setShowYearPicker(false)}

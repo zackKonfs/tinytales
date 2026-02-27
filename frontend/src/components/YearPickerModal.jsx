@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 
 /**
  * YearPickerModal
@@ -10,12 +10,16 @@ import { useMemo, useState, useEffect } from "react";
  * - onPickMonth: (year: number, monthIndex: number) => void  // monthIndex 0-11
  */
 export default function YearPickerModal({ isOpen, initialYear, onClose, onPickMonth }) {
-  const [year, setYear] = useState(initialYear || new Date().getFullYear());
+  if (!isOpen) return null;
 
-  useEffect(() => {
-    if (!isOpen) return;
-    setYear(initialYear || new Date().getFullYear());
-  }, [isOpen, initialYear]);
+  // Force a fresh mount each time it opens (so state resets) WITHOUT useEffect setState.
+  const mountKey = `open-${initialYear || new Date().getFullYear()}`;
+
+  return <YearPickerInner key={mountKey} initialYear={initialYear} onClose={onClose} onPickMonth={onPickMonth} />;
+}
+
+function YearPickerInner({ initialYear, onClose, onPickMonth }) {
+  const [year, setYear] = useState(initialYear || new Date().getFullYear());
 
   const months = useMemo(
     () => [
@@ -35,16 +39,8 @@ export default function YearPickerModal({ isOpen, initialYear, onClose, onPickMo
     []
   );
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      style={ui.backdrop}
-      onClick={() => onClose?.()}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Pick year and month"
-    >
+    <div style={ui.backdrop} onClick={() => onClose?.()} role="dialog" aria-modal="true" aria-label="Pick year and month">
       <div style={ui.modal} onClick={(e) => e.stopPropagation()}>
         <div style={ui.header}>
           <button style={ui.navBtn} onClick={() => setYear((y) => y - 1)} aria-label="Previous year">
