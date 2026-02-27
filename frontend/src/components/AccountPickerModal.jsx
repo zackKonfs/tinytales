@@ -1,13 +1,12 @@
 export default function AccountPickerModal({
   open,
   parentName = "Zack",
-  childrenNames = [],
+  children = [],
   onSelectParent,
   onSelectChild,
   onClose,
 }) {
   if (!open) return null;
-  console.log("AccountPicker childrenNames:", childrenNames);
 
   return (
     <div style={styles.backdrop}>
@@ -25,35 +24,20 @@ export default function AccountPickerModal({
           </button>
         </div>
 
-        {/* <div style={styles.section}>
-          <div style={styles.label}>Children</div>
-          <div style={styles.list}>
-            {childrenNames.map((name) => (
-              <button
-                key={name}
-                style={styles.childBtn}
-                onClick={() => onSelectChild(name)}
-              >
-                {name}
-              </button>
-            ))}
-          </div>
-        </div> */}
-
         <div style={styles.section}>
         <div style={styles.label}>Children</div>
 
-        {childrenNames.length === 0 ? (
+        {children.length === 0 ? (
             <div style={styles.emptyText}>No children account yet!</div>
         ) : (
             <div style={styles.list}>
-            {childrenNames.map((name) => (
+            {children.map((c) => (
                 <button
-                key={name}
-                style={styles.childBtn}
-                onClick={() => onSelectChild(name)}
+                    key={c.id}
+                    style={styles.childBtn}
+                    onClick={() => onSelectChild(c)}
                 >
-                {name}
+                    {c.name}
                 </button>
             ))}
             </div>

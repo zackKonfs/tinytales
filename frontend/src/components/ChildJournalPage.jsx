@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { apiFetch } from "../api/client";
 import { fetchJson } from "./childJournal.api";
 import { styles, modalStyles } from "./childJournal.styles";
@@ -16,6 +16,8 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
         []
     );
     const [activeMonth, setActiveMonth] = useState(months[0]);
+    const [pageIndex, setPageIndex] = useState(0);
+    const CARDS_PER_PAGE = 3;
 
     const todayText = "Today is 30th January 2026, Friday";
 
@@ -23,8 +25,43 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
 
     const { childAvatarUrl, setChildAvatarUrl } = useChildProfile(childId);
     const { entries, setEntries, loadingEntries } = useChildEntries(childId);
+    const filteredEntries = useMemo(() => {
+        if (!activeMonth) return entries;
+
+        // activeMonth like "January 2026"
+        const [monthName, yearStr] = activeMonth.split(" ");
+        const year = Number(yearStr);
+
+        const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth(); // 0-11
+
+        return (entries || []).filter((e) => {
+            const d = new Date(e.entry_date);
+            return d.getFullYear() === year && d.getMonth() === monthIndex;
+        });
+    }, [entries, activeMonth]);
+
+    const pagedEntries = useMemo(() => {
+        const start = pageIndex * CARDS_PER_PAGE;
+        const end = start + CARDS_PER_PAGE;
+        return filteredEntries.slice(start, end);
+    }, [filteredEntries, pageIndex]);
 
     const editor = useEntryEditor({ childId, setEntries });
+
+    useEffect(() => {
+        if (!entries || entries.length === 0) return;
+
+        const d = new Date(entries[0].entry_date);
+
+        const monthName = d.toLocaleString("en-US", { month: "long" });
+        const monthLabel = `${monthName} ${d.getFullYear()}`;
+
+        setActiveMonth(monthLabel);
+    }, [entries]);
+
+    useEffect(() => {
+        setPageIndex(0);
+    }, [activeMonth]);
 
   const handleChildAvatarChange = useCallback(
     async (e) => {
@@ -131,60 +168,86 @@ export default function ChildJournalPage({ child, onLogout, onGoParent }) {
 
         {/* Top carousel */}
         <div style={styles.topCarousel}>
-          <button style={styles.arrowBtn} aria-label="Previous entries">
+          <button
+                style={styles.arrowBtn}
+                aria-label="Previous entries"
+                onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+            >
             ‹
           </button>
 
-          <div style={styles.cardsRow}>
-            {loadingEntries ? (
-              <div style={{ opacity: 0.6 }}>Loading entries...</div>
-            ) : entries.length === 0 ? (
-              <div style={{ opacity: 0.6 }}>No entry yet.</div>
-            ) : (
-              entries.map((e) => (
-                <div key={e.id} style={styles.card}>
-                  <div style={styles.thumb}>
-                    <div style={styles.thumbPlaceholder} />
-                    <div style={styles.cardActions}>
-                      <button
-                        style={styles.iconBtn}
-                        title="Edit"
-                        onClick={async (ev) => {
-                          ev.stopPropagation();
-                          await editor.openEditEntry(e);
-                        }}
-                      >
-                        ✎
-                      </button>
+            <div style={styles.cardsRow}>
+                {loadingEntries ? (
+                    <div style={{ opacity: 0.6 }}>Loading entries...</div>
+                ) : filteredEntries.length === 0 ? (
+                    <div style={{ opacity: 0.6 }}>No entry yet.</div>
+                ) : (
+                    [...Array(CARDS_PER_PAGE)].map((_, index) => {
+                    const e = pagedEntries[index];
 
-                      <button
-                        style={styles.iconBtn}
-                        title="Delete"
-                        onClick={(ev) => {
-                          ev.stopPropagation();
-                          handleDeleteEntry(e.id);
-                        }}
-                      >
-                        🗑
-                      </button>
-                    </div>
-                  </div>
+                    if (!e) {
+                        // invisible placeholder to keep layout width stable
+                        return (
+                        <div
+                            key={`empty-${index}`}
+                            style={styles.cardPlaceholder}
+                        />
+                        );
+                    }
 
-                  <div style={styles.cardDate}>
-                    {new Date(e.entry_date).toLocaleString([], {
-                      year: "numeric",
-                      month: "numeric",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+                    return (
+                        <div key={e.id} style={styles.card}>
+                        <div style={styles.thumb}>
+                            <div style={styles.thumbPlaceholder} />
+                            <div style={styles.cardActions}>
+                            <button
+                                style={styles.iconBtn}
+                                title="Edit"
+                                onClick={async (ev) => {
+                                ev.stopPropagation();
+                                await editor.openEditEntry(e);
+                                }}
+                            >
+                                ✎
+                            </button>
 
-          <button style={styles.arrowBtn} aria-label="Next entries">
+                            <button
+                                style={styles.iconBtn}
+                                title="Delete"
+                                onClick={(ev) => {
+                                ev.stopPropagation();
+                                handleDeleteEntry(e.id);
+                                }}
+                            >
+                                🗑
+                            </button>
+                            </div>
+                        </div>
+
+                        <div style={styles.cardDate}>
+                            {new Date(e.entry_date).toLocaleString([], {
+                            year: "numeric",
+                            month: "numeric",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            })}
+                        </div>
+                        </div>
+                    );
+                    })
+                )}
+            </div>
+
+          <button
+                style={styles.arrowBtn}
+                aria-label="Next entries"
+                onClick={() =>
+                    setPageIndex((p) =>
+                    (p + 1) * CARDS_PER_PAGE < filteredEntries.length ? p + 1 : p
+                    )
+                }
+            >
             ›
           </button>
         </div>

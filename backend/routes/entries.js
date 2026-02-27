@@ -2,7 +2,7 @@ import express from "express";
 import multer from "multer";
 import { createClient } from "@supabase/supabase-js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { supabase, supabaseAdmin } from "../supabaseClient.js";
+import { supabaseAdmin } from "../supabaseClient.js";
 
 const router = express.Router();
 
@@ -102,8 +102,9 @@ router.post("/", requireAuth, async (req, res) => {
   // ownership check
   const own = await requireChildOwned(req, childId);
   if (!own.ok) return res.status(own.status).json({ ok: false, message: own.message });
+  if (!mustAdmin(res)) return;
 
-  const { data: inserted, error: insErr } = await supabase
+  const { data: inserted, error: insErr } = await supabaseAdmin
     .from("entries")
     .insert([
       {
@@ -134,8 +135,9 @@ router.put("/:entryId", requireAuth, async (req, res) => {
 
   const own = await requireEntryOwned(req, entryId);
   if (!own.ok) return res.status(own.status).json({ ok: false, message: own.message });
+  if (!mustAdmin(res)) return;
 
-  const { data: updated, error: updErr } = await supabase
+  const { data: updated, error: updErr } = await supabaseAdmin
     .from("entries")
     .update({ title: t, content: c, entry_date: safeDate(entry_date) })
     .eq("id", entryId)
@@ -159,8 +161,9 @@ router.patch("/:entryId", requireAuth, async (req, res) => {
 
   const own = await requireEntryOwned(req, entryId);
   if (!own.ok) return res.status(own.status).json({ ok: false, message: own.message });
+  if (!mustAdmin(res)) return;
 
-  const { data: updated, error: upErr } = await supabase
+  const { data: updated, error: upErr } = await supabaseAdmin
     .from("entries")
     .update({ title: t, content: c })
     .eq("id", entryId)
@@ -168,8 +171,8 @@ router.patch("/:entryId", requireAuth, async (req, res) => {
     .single();
 
   if (upErr) return res.status(500).json({ ok: false, message: upErr.message });
-  return res.json({ ok: true, entry: updated });
-});
+    return res.json({ ok: true, entry: updated });
+  });
 
 // List entries by child
 router.get("/children/:id/entries", requireAuth, async (req, res) => {
@@ -200,6 +203,7 @@ router.patch("/:entryId/photo-paths", requireAuth, async (req, res) => {
 
   const incoming = req.body?.photo_paths;
   const paths = Array.isArray(incoming) ? incoming : [];
+  console.log("PATCH PHOTO PATHS:", { entryId, paths });
   if (paths.length > 3) {
     return res.status(400).json({ ok: false, message: "Max 3 photos per entry" });
   }
@@ -217,8 +221,8 @@ router.patch("/:entryId/photo-paths", requireAuth, async (req, res) => {
     .single();
 
   if (updErr) return res.status(500).json({ ok: false, message: updErr.message });
-  return res.json({ ok: true, entry: updated });
-});
+    return res.json({ ok: true, entry: updated });
+  });
 
 // Soft delete entry
 router.patch("/:entryId/deactivate", requireAuth, async (req, res) => {
@@ -256,6 +260,7 @@ router.post("/:entryId/photos", requireAuth, upload.array("photos", 3), async (r
   if (!own.ok) return res.status(own.status).json({ ok: false, message: own.message });
 
   const files = req.files || [];
+  console.log("UPLOAD PHOTOS:", { entryId, count: files.length, types: files.map(f => f.mimetype), sizes: files.map(f => f.size) });
   if (files.length === 0) return res.status(400).json({ ok: false, message: "No photos uploaded" });
 
   const existing = own.entryRow.photo_paths || [];
@@ -279,7 +284,10 @@ router.post("/:entryId/photos", requireAuth, upload.array("photos", 3), async (r
       .from("entry-photos")
       .upload(path, f.buffer, { contentType: f.mimetype });
 
-    if (upErr) return res.status(500).json({ ok: false, message: upErr.message || "Upload failed" });
+    if (upErr) {
+      console.log("STORAGE UPLOAD ERROR:", upErr);
+      return res.status(500).json({ ok: false, message: upErr.message || "Upload failed" });
+    }
 
     newPaths.push(path);
   }

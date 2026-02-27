@@ -19,7 +19,6 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [isBooting, setIsBooting] = useState(true);
   const [selectedChild, setSelectedChild] = useState(null);
-  const [childrenNames, setChildrenNames] = useState([]);
   const [childrenList, setChildrenList] = useState([]);
 
   const pageProps = {
@@ -136,18 +135,12 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
 
         if (res.ok) {
           const children = json.children ?? [];
-
           setChildrenList(children);
-
-          const names = children.map((c) => c.name);
-          setChildrenNames(names);
         } else {
           setChildrenList([]);
-          setChildrenNames([]);
         }
       } catch {
         if (!alive) return;
-        setChildrenNames([]);
       }
     }
 
@@ -175,13 +168,12 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
       <AccountPickerModal
         open={showAccountPicker}
         parentName="Zack (Parent)"
-        childrenNames={childrenNames}
+        children={childrenList}
         onSelectParent={() => {
           setShowAccountPicker(false);
           setCheckPage("parent");
         }}
-        onSelectChild={(name) => {
-          const child = (childrenList ?? []).find((c) => c.name === name) || { name };
+        onSelectChild={(child) => {
           setSelectedChild(child);
           localStorage.setItem("tt_selectedChild", JSON.stringify(child));
 

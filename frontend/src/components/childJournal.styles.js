@@ -41,7 +41,14 @@ export const styles = {
     cursor: "pointer",
     fontSize: 22,
   },
-  cardsRow: { display: "flex", gap: 16, overflow: "hidden", padding: 6 },
+  cardsRow: {
+        display: "flex",
+        gap: 16,
+        overflow: "hidden",
+        padding: 6,
+        width: (180 * 3) + (16 * 2), // 3 cards + gaps
+        justifyContent: "flex-start",
+    },
   card: {
     width: 180,
     background: "rgba(255,255,255,0.75)",
@@ -49,6 +56,19 @@ export const styles = {
     borderRadius: 14,
     padding: 10,
     boxShadow: "0 10px 20px rgba(0,0,0,0.08)",
+  },
+cardPlaceholder: {
+    width: 180,
+    borderRadius: 14,
+    padding: 10,
+    background: "rgba(255,255,255,0.30)",
+    border: "2px dashed rgba(0,0,0,0.12)",
+    boxShadow: "none",
+  },
+  thumbPlaceholderEmpty: {
+    width: "100%",
+    height: "100%",
+    background: "rgba(255,255,255,0.35)",
   },
   thumb: {
     position: "relative",
