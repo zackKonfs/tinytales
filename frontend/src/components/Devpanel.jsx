@@ -1,20 +1,16 @@
 import { useNavigate } from "react-router-dom";
 import { clearSession, loadSession } from "../auth/session";
 import { styles } from "./devpanel.styles";
-import { Section, Row, CopyPill } from "./devpanel.ui";
+import { Section } from "./devpanel.ui";
 import { useDevPanel } from "./devpanel.hooks";
 import DevChildCard from "./DevChildCard";
 
 export default function DevPanel({ username }) {
   const navigate = useNavigate();
 
-  /* =========================
-     Auth guard (superadmin)
-  ========================= */
   const sessionEmail = loadSession()?.user?.email || "";
   const effectiveEmail = username || sessionEmail;
   const isAllowed = effectiveEmail === "zack.xu@hotmail.com";
-
   const dp = useDevPanel({ isAllowed });
 
   function onBackToParent() {
@@ -27,9 +23,6 @@ export default function DevPanel({ username }) {
     window.location.reload();
   }
 
-  /* =========================
-     Guard UI
-  ========================= */
   if (!isAllowed) {
     return (
       <div style={{ padding: 24 }}>
@@ -39,13 +32,9 @@ export default function DevPanel({ username }) {
     );
   }
 
-  /* =========================
-     Render
-  ========================= */
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        {/* Header */}
         <header style={styles.header}>
           <div>
             <h1 style={styles.title}>Dev Panel</h1>
@@ -54,7 +43,7 @@ export default function DevPanel({ username }) {
 
           <div style={styles.actions}>
             <button style={styles.backBtn} onClick={onBackToParent}>
-              ← Back to Parent
+              {"<-"} Back to Parent
             </button>
             <button style={styles.logoutBtn} onClick={onLogout}>
               Logout
@@ -62,7 +51,6 @@ export default function DevPanel({ username }) {
           </div>
         </header>
 
-        {/* Sticky last error */}
         {dp.lastApiError ? (
           <div style={styles.lastErr}>
             <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
@@ -88,27 +76,7 @@ export default function DevPanel({ username }) {
           </div>
         ) : null}
 
-        {/* Panel */}
         <div style={styles.panel}>
-          {/* System */}
-          <Section title="System">
-            <Row label="Backend health">
-              <pre style={styles.pre}>{dp.health ? JSON.stringify(dp.health, null, 2) : "Loading..."}</pre>
-            </Row>
-
-            <Row label="/api/me">
-              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                <button style={styles.primaryBtn} onClick={dp.testMe}>
-                  Test /api/me
-                </button>
-                {dp.me?.status ? <span style={{ fontSize: 12, opacity: 0.7 }}>status: {dp.me.status}</span> : null}
-              </div>
-
-              <pre style={styles.pre}>{dp.me ? JSON.stringify(dp.me, null, 2) : "Not tested yet"}</pre>
-            </Row>
-          </Section>
-
-          {/* Parents */}
           <Section
             title={`Parents (${dp.parentsStats.shown}/${dp.parentsStats.loaded})`}
             right={
@@ -157,34 +125,45 @@ export default function DevPanel({ username }) {
 
                 {dp.filteredParents.map((p) => {
                   const kidsCount = dp.kidsCountByParentId[p.id] || 0;
+                  const age = dp.getAgeFromDob(p.date_of_birth);
+                  const parentLabel = p.username || p.email || "Unnamed parent";
+                  const isDeletingParent = dp.parentActionLoadingId === p.id;
 
                   return (
-                    <button
-                      key={p.id}
-                      style={{
-                        ...styles.childItem,
-                        ...(dp.selectedParentId === p.id ? styles.childItemActive : {}),
-                      }}
-                      onClick={() => dp.selectParent(p.id)}
-                      title="Filter children by this parent"
-                    >
-                      <div style={styles.childName}>{p.username || p.email || "Unnamed parent"}</div>
+                    <div key={p.id} style={styles.parentCardWrap}>
+                      <button
+                        style={{
+                          ...styles.childItem,
+                          ...(dp.selectedParentId === p.id ? styles.childItemActive : {}),
+                          width: "100%",
+                        }}
+                        onClick={() => dp.selectParent(p.id)}
+                        title="Filter children by this parent"
+                      >
+                        <div style={styles.childName}>{parentLabel}</div>
+                        <div style={styles.childMeta}>gender: {p.gender || "-"}</div>
+                        <div style={styles.childMeta}>age: {age ?? "-"}</div>
+                        <div style={styles.childMeta}>kids: {kidsCount}</div>
+                      </button>
 
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <div style={styles.childMeta}>id: {p.id}</div>
-                        <CopyPill value={p.id} title="Copy parent id" onCopy={dp.copyText} />
-                      </div>
-
-                      {p.gender ? <div style={styles.childMeta}>gender: {p.gender}</div> : null}
-                      <div style={styles.childMeta}>kids: {kidsCount}</div>
-                    </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          dp.removeParent(p.id, parentLabel);
+                        }}
+                        disabled={isDeletingParent}
+                        style={{ ...styles.miniBtnDanger, opacity: isDeletingParent ? 0.6 : 1 }}
+                        title="Delete parent account"
+                      >
+                        {isDeletingParent ? "..." : "Delete"}
+                      </button>
+                    </div>
                   );
                 })}
               </div>
             )}
           </Section>
 
-          {/* Children */}
           <Section
             title={`Children (${dp.selectedParentLabel})`}
             subTitle={`Active: ${dp.visibleStats.active}  |  Deleted: ${dp.visibleStats.deleted}  |  Total: ${dp.visibleStats.total}`}
@@ -199,7 +178,7 @@ export default function DevPanel({ username }) {
                 <select value={dp.childSort} onChange={(e) => dp.setChildSort(e.target.value)} style={styles.select}>
                   <option value="created_desc">Newest</option>
                   <option value="created_asc">Oldest</option>
-                  <option value="name_az">Name A–Z</option>
+                  <option value="name_az">Name A-Z</option>
                 </select>
 
                 <button style={styles.secondaryBtn} onClick={dp.loadChildren} disabled={dp.childrenLoading}>
@@ -236,23 +215,31 @@ export default function DevPanel({ username }) {
                     isBusy={dp.childActionLoadingId === c.id}
                     cachedCount={dp.entriesCache[c.id]?.length}
                     entriesLoading={dp.entriesLoading}
+                    age={dp.getAgeFromDob(c.date_of_birth)}
                     onSelect={() => dp.loadEntriesForChild(c)}
                     onToggleActive={(nextActive) => dp.setChildActive(c.id, nextActive)}
-                    onCopy={dp.copyText}
                   />
                 ))}
               </div>
             )}
           </Section>
 
-          {/* Entries */}
           <Section
             title="Entries"
             subTitle={dp.selectedChildTitle}
             right={
               <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <label style={styles.inlineCheckbox}>
+                  <input
+                    type="checkbox"
+                    checked={dp.entriesIncludeInactive}
+                    onChange={(e) => dp.setEntriesIncludeInactive(e.target.checked)}
+                  />
+                  show inactive entries
+                </label>
+
                 <div style={{ fontSize: 12, fontWeight: 800, opacity: 0.75 }}>
-                  {dp.selectedChild ? `Rows: ${dp.entries.length}` : ""}
+                  {dp.selectedChild ? `Rows: ${dp.visibleEntries.length}` : ""}
                 </div>
               </div>
             }
@@ -263,54 +250,28 @@ export default function DevPanel({ username }) {
               <div style={styles.note}>Loading entries...</div>
             ) : dp.entriesErr ? (
               <div style={styles.error}>{dp.entriesErr}</div>
-            ) : dp.entries.length === 0 ? (
+            ) : dp.visibleEntries.length === 0 ? (
               <div style={styles.note}>No entries found for this child.</div>
             ) : (
               <div style={{ overflowX: "auto" }}>
                 <table style={styles.table}>
                   <thead>
                     <tr>
-                      <th style={styles.th}>id</th>
-                      <th style={styles.th}>entry_date</th>
-                      <th style={styles.th}>created_at</th>
+                      <th style={styles.th}>entry date</th>
                       <th style={styles.th}>is_active</th>
                       <th style={styles.th}>photo_count</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {dp.entries.map((e) => (
-                      <tr key={e.id}>
-                        <td style={styles.td}>
-                          {e.id}{" "}
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            style={styles.copyLink}
-                            onClick={() => dp.copyText(e.id)}
-                            onKeyDown={(ev) => {
-                              if (ev.key === "Enter" || ev.key === " ") {
-                                ev.preventDefault();
-                                dp.copyText(e.id);
-                              }
-                            }}
-                            title="Copy entry id"
-                          >
-                            copy
-                          </span>
-                        </td>
-                        <td style={styles.td}>{e.entry_date}</td>
-                        <td style={styles.td}>{e.created_at}</td>
+                    {dp.visibleEntries.map((e) => (
+                      <tr key={e.id} style={!e.is_active ? styles.entryInactiveRow : undefined}>
+                        <td style={styles.td}>{e.entryDateLabel}</td>
                         <td style={styles.td}>{String(e.is_active)}</td>
                         <td style={styles.td}>{(e.photo_paths ?? []).length}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-
-                <div style={{ marginTop: 10 }}>
-                  <div style={{ fontSize: 12, fontWeight: 900, opacity: 0.75, marginBottom: 6 }}>Raw JSON</div>
-                  <pre style={styles.pre}>{JSON.stringify(dp.entries, null, 2)}</pre>
-                </div>
               </div>
             )}
           </Section>

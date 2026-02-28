@@ -4,20 +4,6 @@ export async function safeJson(res) {
   return res.json().catch(() => ({}));
 }
 
-export async function fetchHealth() {
-  const endpoint = "/api/health";
-  const res = await apiFetch(endpoint);
-  const json = await safeJson(res);
-  return { endpoint, res, json };
-}
-
-export async function fetchMe() {
-  const endpoint = "/api/me";
-  const res = await apiFetch(endpoint);
-  const json = await safeJson(res);
-  return { endpoint, res, json };
-}
-
 export async function fetchParents() {
   const endpoint = "/api/dev/parents";
   const res = await apiFetch(endpoint);
@@ -46,6 +32,13 @@ export async function patchChildActive(childId, is_active) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ is_active }),
   });
+  const json = await safeJson(res);
+  return { endpoint, res, json };
+}
+
+export async function deleteParent(parentId) {
+  const endpoint = `/api/dev/parents/${parentId}`;
+  const res = await apiFetch(endpoint, { method: "DELETE" });
   const json = await safeJson(res);
   return { endpoint, res, json };
 }

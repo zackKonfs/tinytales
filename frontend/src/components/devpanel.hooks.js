@@ -1,14 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchChildren, fetchEntries, fetchHealth, fetchMe, fetchParents, patchChildActive } from "./devpanel.api";
+import { deleteParent, fetchChildren, fetchEntries, fetchParents, patchChildActive } from "./devpanel.api";
 
 export function useDevPanel({ isAllowed }) {
-  /* =========================
-     State
-  ========================= */
-  // system
-  const [health, setHealth] = useState(null);
-  const [me, setMe] = useState(null);
-
   // last API error
   const [lastApiError, setLastApiError] = useState(null);
 
@@ -35,13 +28,12 @@ export function useDevPanel({ isAllowed }) {
   const [entriesCache, setEntriesCache] = useState({});
   const [entriesLoading, setEntriesLoading] = useState(false);
   const [entriesErr, setEntriesErr] = useState("");
+  const [entriesIncludeInactive, setEntriesIncludeInactive] = useState(false);
 
-  // child action loading
+  // action loading
   const [childActionLoadingId, setChildActionLoadingId] = useState(null);
+  const [parentActionLoadingId, setParentActionLoadingId] = useState(null);
 
-  /* =========================
-     Helpers
-  ========================= */
   const setApiError = useCallback((endpoint, status, message) => {
     setLastApiError({
       at: new Date().toISOString(),
@@ -74,9 +66,32 @@ export function useDevPanel({ isAllowed }) {
     }
   }, []);
 
-  /* =========================
-     Derived
-  ========================= */
+  const getAgeFromDob = useCallback((dob) => {
+    if (!dob) return null;
+    const d = new Date(dob);
+    if (Number.isNaN(d.getTime())) return null;
+    const age = new Date().getFullYear() - d.getFullYear();
+    return age >= 0 ? age : null;
+  }, []);
+
+  const formatEntryDateTime = useCallback((input) => {
+    if (!input) return "-";
+    const d = new Date(input);
+    if (Number.isNaN(d.getTime())) return "-";
+
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][
+      d.getMonth()
+    ];
+    const year = d.getFullYear();
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    const rawHours = d.getHours();
+    const ampm = rawHours >= 12 ? "PM" : "AM";
+    const hours12 = String(rawHours % 12 || 12).padStart(2, "0");
+
+    return `${day}${month}${year} ${hours12}:${minutes} ${ampm}`;
+  }, []);
+
   const kidsCountByParentId = useMemo(() => {
     const map = {};
     for (const c of children) {
@@ -88,7 +103,7 @@ export function useDevPanel({ isAllowed }) {
 
   const selectedChildTitle = useMemo(() => {
     if (!selectedChild) return "No child selected";
-    return `${selectedChild.name} (id: ${selectedChild.id})`;
+    return selectedChild.name;
   }, [selectedChild]);
 
   const selectedParentLabel = useMemo(() => {
@@ -130,9 +145,9 @@ export function useDevPanel({ isAllowed }) {
     const base = !q
       ? parents
       : parents.filter((p) => {
-          const label = (p.username || p.email || "").toLowerCase();
-          const id = String(p.id || "").toLowerCase();
-          return label.includes(q) || id.includes(q);
+          const label = (p.username || "").toLowerCase();
+          const email = (p.email || "").toLowerCase();
+          return label.includes(q) || email.includes(q);
         });
 
     if (!onlyParentsWithKids) return base;
@@ -151,19 +166,17 @@ export function useDevPanel({ isAllowed }) {
     return { loaded: parents.length, shown: filteredParents.length };
   }, [parents.length, filteredParents.length]);
 
-  /* =========================
-     Actions
-  ========================= */
-  const testMe = useCallback(async () => {
-    try {
-      const { endpoint, res, json } = await fetchMe();
-      setMe({ status: res.status, ...json });
-      if (!res.ok) setApiError(endpoint, res.status, json.error || json.message || "Failed");
-    } catch (e) {
-      setMe({ status: 0, ok: false, message: String(e) });
-      setApiError("/api/me", 0, String(e));
-    }
-  }, [setApiError]);
+  const entryRows = useMemo(() => {
+    return entries.map((e) => ({
+      ...e,
+      entryDateLabel: formatEntryDateTime(e.created_at || e.entry_date),
+    }));
+  }, [entries, formatEntryDateTime]);
+
+  const visibleEntries = useMemo(() => {
+    if (entriesIncludeInactive) return entryRows;
+    return entryRows.filter((e) => e.is_active);
+  }, [entryRows, entriesIncludeInactive]);
 
   const loadParents = useCallback(async () => {
     setParentsErr("");
@@ -320,16 +333,51 @@ export function useDevPanel({ isAllowed }) {
     [loadChildren, selectedChild, setApiError]
   );
 
-  /* =========================
-     Effects
-  ========================= */
-  useEffect(() => {
-    if (!isAllowed) return;
+  const removeParent = useCallback(
+    async (parentId, parentLabel) => {
+      if (!parentId) return;
+      if (!window.confirm(`Confirm to delete parent account "${parentLabel || "this parent"}"?`)) return;
 
-    fetchHealth()
-      .then(({ json }) => setHealth(json))
-      .catch((e) => setHealth({ ok: false, message: String(e) }));
-  }, [isAllowed]);
+      setParentActionLoadingId(parentId);
+      setParentsErr("");
+
+      try {
+        const { endpoint, res, json } = await deleteParent(parentId);
+        if (!res.ok) {
+          const msg = json.error || json.message || `Failed (${res.status})`;
+          setParentsErr(msg);
+          setApiError(endpoint, res.status, msg);
+          return;
+        }
+
+        const removedChildIds = children.filter((c) => c.parent_user_id === parentId).map((c) => c.id);
+        setParents((prev) => prev.filter((p) => p.id !== parentId));
+        setChildren((prev) => prev.filter((c) => c.parent_user_id !== parentId));
+        setEntriesCache((prev) => {
+          const next = { ...prev };
+          for (const cid of removedChildIds) delete next[cid];
+          return next;
+        });
+
+        if (selectedParentId === parentId) {
+          setSelectedParentId("");
+          resetSelection();
+          return;
+        }
+
+        if (selectedChild && removedChildIds.includes(selectedChild.id)) {
+          resetSelection();
+        }
+      } catch (e) {
+        const msg = String(e);
+        setParentsErr(msg);
+        setApiError(`/api/dev/parents/${parentId}`, 0, msg);
+      } finally {
+        setParentActionLoadingId(null);
+      }
+    },
+    [children, resetSelection, selectedChild, selectedParentId, setApiError]
+  );
 
   useEffect(() => {
     if (!isAllowed) return;
@@ -344,11 +392,6 @@ export function useDevPanel({ isAllowed }) {
   }, [parents, selectedParentId]);
 
   return {
-    // system
-    health,
-    me,
-    testMe,
-
     // last error
     lastApiError,
     setLastApiError,
@@ -366,6 +409,8 @@ export function useDevPanel({ isAllowed }) {
     filteredParents,
     parentsStats,
     kidsCountByParentId,
+    removeParent,
+    parentActionLoadingId,
     selectParent,
     loadParents,
 
@@ -388,14 +433,18 @@ export function useDevPanel({ isAllowed }) {
     selectedChild,
     selectedChildTitle,
     entries,
+    visibleEntries,
     entriesCache,
     entriesLoading,
     entriesErr,
+    entriesIncludeInactive,
+    setEntriesIncludeInactive,
     loadEntriesForChild,
     clearSelection,
     clearEntriesCache,
 
     // misc
     copyText,
+    getAgeFromDob,
   };
 }

@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/client";
 import CreateChildModal from "./CreateChildModal";
-import { useNavigate } from "react-router-dom";
 
 function toTitleCase(s) {
   if (!s) return "";
@@ -13,19 +13,48 @@ function toTitleCase(s) {
     .join(" ");
 }
 
+function isBlobUrl(v) {
+  return typeof v === "string" && v.startsWith("blob:");
+}
+
+function withCacheBust(url) {
+  if (!url) return "";
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}v=${Date.now()}`;
+}
+
 export default function ParentAccount({ parentName, onSelectChild, parentEmail }) {
+  const navigate = useNavigate();
+
   const [showCreateChild, setShowCreateChild] = useState(false);
   const [childrenList, setChildrenList] = useState([]);
   const [loadingChildren, setLoadingChildren] = useState(false);
   const [childrenError, setChildrenError] = useState("");
+
+  const [profile, setProfile] = useState({
+    username: "",
+    gender: "",
+    date_of_birth: "",
+    avatar_url: "",
+  });
   const [parentAvatarUrl, setParentAvatarUrl] = useState("");
+  const [displayName, setDisplayName] = useState(() => toTitleCase(parentName || "Parent"));
+
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editForm, setEditForm] = useState({
+    username: "",
+    gender: "",
+    date_of_birth: "",
+  });
+  const [editAvatarFile, setEditAvatarFile] = useState(null);
+  const [editAvatarPreview, setEditAvatarPreview] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+
   const [confirmChild, setConfirmChild] = useState(null);
   const [successMsg, setSuccessMsg] = useState("");
 
-  const navigate = useNavigate();
-
-  // ✅ displayName is what UI should show (not parentName/email)
-  const [displayName, setDisplayName] = useState(() => toTitleCase(parentName || "Parent"));
+  const isSuperAdmin = useMemo(() => parentEmail === "zack.xu@hotmail.com", [parentEmail]);
 
   function getInitials(name = "") {
     const trimmed = String(name || "").trim();
@@ -36,39 +65,74 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
     return (first + last).toUpperCase();
   }
 
-  async function handleParentAvatarChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  function resetEditState() {
+    setEditError("");
+    setEditSaving(false);
+    setEditAvatarFile(null);
+    setEditAvatarPreview("");
+    setEditForm({
+      username: profile.username || "",
+      gender: profile.gender || "",
+      date_of_birth: profile.date_of_birth || "",
+    });
+  }
+
+  function openEditModal() {
+    resetEditState();
+    setShowEditProfile(true);
+  }
+
+  function closeEditModal() {
+    if (isBlobUrl(editAvatarPreview)) URL.revokeObjectURL(editAvatarPreview);
+    setShowEditProfile(false);
+    setEditError("");
+    setEditAvatarFile(null);
+    setEditAvatarPreview("");
+  }
+
+  const loadChildren = useCallback(async () => {
+    setChildrenError("");
+    setLoadingChildren(true);
 
     try {
-      const MAX = 1.5 * 1024 * 1024; // 1.5MB
-      if (file.size > MAX) {
-        alert("Image must be smaller than 1.5MB");
-        return;
-      }
-
-      const form = new FormData();
-      form.append("avatar", file);
-
-      const res = await apiFetch("/api/avatar/parent", {
-        method: "POST",
-        body: form,
-      });
-
+      const res = await apiFetch("/api/children");
       const json = await res.json().catch(() => ({}));
-      console.log("avatar upload status:", res.status, json);
 
       if (!res.ok) {
-        alert(json.error || json.message || `Upload failed (HTTP ${res.status})`);
+        setChildrenError(json.error || json.message || "Failed to load children");
+        setChildrenList([]);
         return;
       }
 
-      // cache-bust so browser doesn’t show old cached avatar
-      setParentAvatarUrl(`${json.avatar_url}?v=${Date.now()}`);
+      setChildrenList(json.children ?? []);
+    } catch {
+      setChildrenError("Network error loading children");
+      setChildrenList([]);
     } finally {
-      e.target.value = "";
+      setLoadingChildren(false);
     }
-  }
+  }, []);
+
+  const loadParentProfile = useCallback(async () => {
+    const res = await apiFetch("/api/parent/profile");
+    const json = await res.json().catch(() => ({}));
+
+    if (res.ok && json.ok) {
+      const nextProfile = {
+        username: json.profile?.username || "",
+        gender: json.profile?.gender || "",
+        date_of_birth: json.profile?.date_of_birth || "",
+        avatar_url: json.profile?.avatar_url || "",
+      };
+
+      setProfile(nextProfile);
+      setParentAvatarUrl(withCacheBust(nextProfile.avatar_url));
+      setDisplayName(toTitleCase(nextProfile.username || parentName || "Parent"));
+      return;
+    }
+
+    setDisplayName(toTitleCase(parentName || "Parent"));
+  }, [parentName]);
 
   async function setChildActive(childId, isActive) {
     const res = await apiFetch(`/api/children/${childId}/active`, {
@@ -78,62 +142,96 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
     });
 
     const json = await res.json().catch(() => ({}));
-
     if (!res.ok) {
       alert(json.message || json.error || `Failed (${res.status})`);
       return;
     }
 
-    if (!isActive) {
-      setChildrenList((prev) => prev.filter((c) => c.id !== childId));
+    if (!isActive) setChildrenList((prev) => prev.filter((c) => c.id !== childId));
+  }
+
+  async function onPickEditAvatar(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const maxBytes = 1.5 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      setEditError("Image must be smaller than 1.5MB.");
+      e.target.value = "";
+      return;
+    }
+
+    if (isBlobUrl(editAvatarPreview)) URL.revokeObjectURL(editAvatarPreview);
+    const nextPreview = URL.createObjectURL(file);
+    setEditAvatarPreview(nextPreview);
+    setEditAvatarFile(file);
+    setEditError("");
+    e.target.value = "";
+  }
+
+  async function saveProfileChanges() {
+    const cleanUsername = String(editForm.username || "").trim();
+    if (!cleanUsername) {
+      setEditError("Name is required.");
+      return;
+    }
+
+    setEditSaving(true);
+    setEditError("");
+
+    try {
+      const profileRes = await apiFetch("/api/parent/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: cleanUsername,
+          gender: editForm.gender || null,
+          date_of_birth: editForm.date_of_birth || null,
+        }),
+      });
+
+      const profileJson = await profileRes.json().catch(() => ({}));
+      if (!profileRes.ok) {
+        setEditError(profileJson.error || profileJson.message || `Failed (${profileRes.status})`);
+        return;
+      }
+
+      if (editAvatarFile) {
+        const form = new FormData();
+        form.append("avatar", editAvatarFile);
+
+        const avatarRes = await apiFetch("/api/avatar/parent", {
+          method: "POST",
+          body: form,
+        });
+        const avatarJson = await avatarRes.json().catch(() => ({}));
+
+        if (!avatarRes.ok) {
+          setEditError(avatarJson.error || avatarJson.message || `Avatar upload failed (${avatarRes.status})`);
+          return;
+        }
+      }
+
+      await loadParentProfile();
+      closeEditModal();
+      setSuccessMsg("Profile updated.");
+    } catch (e) {
+      setEditError(String(e));
+    } finally {
+      setEditSaving(false);
     }
   }
 
   useEffect(() => {
-    async function loadChildren() {
-      setChildrenError("");
-      setLoadingChildren(true);
-
-      try {
-        const res = await apiFetch("/api/children");
-        const json = await res.json().catch(() => ({}));
-
-        if (!res.ok) {
-          setChildrenError(json.error || json.message || "Failed to load children");
-          setChildrenList([]);
-          return;
-        }
-
-        setChildrenList(json.children ?? []);
-      } catch {
-        setChildrenError("Network error loading children");
-        setChildrenList([]);
-      } finally {
-        setLoadingChildren(false);
-      }
-    }
-
-    async function loadParentProfile() {
-      // ✅ keep your existing endpoint
-      const res = await apiFetch("/api/parent/profile");
-      const json = await res.json().catch(() => ({}));
-
-      if (res.ok && json.ok) {
-        setParentAvatarUrl(json.profile.avatar_url || "");
-        const nameFromDb = json.profile.username || "";
-        const fallback = parentName || "Parent";
-        setDisplayName(toTitleCase(nameFromDb || fallback));
-      } else {
-        // fallback if endpoint fails
-        setDisplayName(toTitleCase(parentName || "Parent"));
-      }
-    }
-
     loadChildren();
     loadParentProfile();
-  }, [parentName]);
+  }, [loadChildren, loadParentProfile]);
 
-  const isSuperAdmin = useMemo(() => parentEmail === "zack.xu@hotmail.com", [parentEmail]);
+  useEffect(() => {
+    return () => {
+      if (isBlobUrl(editAvatarPreview)) URL.revokeObjectURL(editAvatarPreview);
+    };
+  }, [editAvatarPreview]);
 
   return (
     <div style={styles.page}>
@@ -142,55 +240,27 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
           <div>
             <h1 style={styles.title}>Parent Account</h1>
 
-            <div style={{ position: "relative", width: 56, height: 56 }}>
-              <div
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: "50%",
-                  background: "#eee",
-                  overflow: "hidden",
-                }}
-              >
+            <div style={{ position: "relative", width: 68, height: 68 }}>
+              <div style={styles.parentAvatarWrap}>
                 {parentAvatarUrl ? (
                   <img
                     src={parentAvatarUrl}
                     alt="parent avatar"
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    style={styles.parentAvatarImg}
                     onError={() => setParentAvatarUrl("")}
                   />
                 ) : (
-                  <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center" }}>
-                    <div style={{ fontWeight: 900, color: "#245a52" }}>{getInitials(displayName)}</div>
+                  <div style={styles.parentAvatarFallback}>
+                    <div style={styles.parentAvatarInitials}>{getInitials(displayName)}</div>
                   </div>
                 )}
               </div>
 
-              <label
-                style={{
-                  position: "absolute",
-                  bottom: -2,
-                  right: -10,
-                  width: 24,
-                  height: 24,
-                  borderRadius: "50%",
-                  background: "#ffffff",
-                  border: "1px solid #ddd",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-                  zIndex: 5,
-                }}
-                title="Change avatar"
-              >
-                <input type="file" accept="image/*" style={{ display: "none" }} onChange={handleParentAvatarChange} />
-                ✏️
-              </label>
+              <button style={styles.avatarEditBtn} title="Edit profile" onClick={openEditModal}>
+                {"\u270E"}
+              </button>
             </div>
 
-            {/* ✅ USE displayName (not parentName/email) */}
             <div style={styles.greeting}>Hello, {displayName} (Parent)</div>
           </div>
 
@@ -210,8 +280,6 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
             Create Account
           </button>
 
-          <div style={{ fontSize: 12, opacity: 0.7 }}>children loaded: {childrenList.length}</div>
-
           {childrenList.length === 0 && (
             <div style={{ opacity: 0.7, padding: "12px 0" }}>No children account yet!</div>
           )}
@@ -222,7 +290,7 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
                 <div style={styles.thumb}>
                   {c.avatar_url ? (
                     <img
-                      src={`${c.avatar_url}?v=${Date.now()}`}
+                      src={c.avatar_url}
                       alt={`${c.name} avatar`}
                       style={styles.thumbImg}
                       onError={(e) => {
@@ -234,7 +302,6 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
                   )}
                 </div>
 
-                {/* ✅ title-case child name too */}
                 <div style={styles.childName}>{toTitleCase(c.name)}</div>
 
                 <button
@@ -264,7 +331,6 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
             });
 
             const json = await res.json().catch(() => ({}));
-
             if (!res.ok) {
               alert(json.error || json.message || "Failed to create child");
               return;
@@ -274,6 +340,84 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
             setShowCreateChild(false);
           }}
         />
+      )}
+
+      {showEditProfile && (
+        <div style={styles.modalBackdrop}>
+          <div style={styles.modalBox}>
+            <div style={styles.modalTitle}>Edit Profile</div>
+
+            <div style={styles.fieldGroup}>
+              <label style={styles.fieldLabel}>Name</label>
+              <input
+                style={styles.fieldInput}
+                value={editForm.username}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, username: e.target.value }))}
+                placeholder="Enter your name"
+              />
+            </div>
+
+            <div style={styles.fieldGroup}>
+              <label style={styles.fieldLabel}>Gender</label>
+              <select
+                style={styles.fieldInput}
+                value={editForm.gender}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, gender: e.target.value }))}
+              >
+                <option value="">Select gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+
+            <div style={styles.fieldGroup}>
+              <label style={styles.fieldLabel}>Date of birth</label>
+              <input
+                type="date"
+                style={styles.fieldInput}
+                value={editForm.date_of_birth}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, date_of_birth: e.target.value }))}
+              />
+            </div>
+
+            <div style={styles.fieldGroup}>
+              <label style={styles.fieldLabel}>Avatar photo</label>
+              <label style={styles.changeAvatarBtn}>
+                Change
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={onPickEditAvatar}
+                  style={{ display: "none" }}
+                />
+              </label>
+              <div style={styles.previewRow}>
+                <div style={styles.previewLabel}>Preview:</div>
+                {editAvatarPreview || parentAvatarUrl ? (
+                  <img
+                    src={editAvatarPreview || parentAvatarUrl}
+                    alt="avatar preview"
+                    style={styles.editPreviewImg}
+                    onError={() => setEditAvatarPreview("")}
+                  />
+                ) : (
+                  <div style={{ opacity: 0.7 }}>No image</div>
+                )}
+              </div>
+            </div>
+
+            {editError ? <div style={styles.inlineError}>{editError}</div> : null}
+
+            <div style={styles.modalActions}>
+              <button style={styles.modalCancelBtn} onClick={closeEditModal} disabled={editSaving}>
+                Cancel
+              </button>
+              <button style={styles.modalDangerBtn} onClick={saveProfileChanges} disabled={editSaving}>
+                {editSaving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirmChild && (
@@ -294,7 +438,7 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
                     const child = confirmChild;
                     await setChildActive(child.id, false);
                     setConfirmChild(null);
-                    setSuccessMsg(`${toTitleCase(child.name)}'s account deleted`);
+                    setSuccessMsg(`${toTitleCase(child.name)} account deleted`);
                   } catch (e) {
                     alert(e?.message || "Failed to delete child");
                   }
@@ -323,7 +467,6 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
       )}
 
       {loadingChildren && <div style={{ padding: "8px 0", opacity: 0.8 }}>Loading children...</div>}
-
       {childrenError && <div style={{ padding: "8px 0", color: "crimson" }}>{childrenError}</div>}
     </div>
   );
@@ -361,16 +504,6 @@ const styles = {
     gap: 12,
     alignItems: "center",
     marginTop: 10,
-  },
-  logoutBtn: {
-    padding: "12px 18px",
-    borderRadius: 14,
-    border: "1px solid rgba(0,0,0,0.12)",
-    background: "#f6efe7",
-    color: "#a3402c",
-    fontWeight: 700,
-    cursor: "pointer",
-    boxShadow: "0 8px 18px rgba(0,0,0,0.12)",
   },
   grid: {
     display: "grid",
@@ -440,7 +573,15 @@ const styles = {
     background: "white",
     borderRadius: "50%",
     cursor: "pointer",
-    padding: 6,
+    width: 36,
+    height: 36,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 18,
+    fontWeight: 700,
+    lineHeight: 1,
+    padding: 0,
   },
   modalBackdrop: {
     position: "fixed",
@@ -476,6 +617,7 @@ const styles = {
     display: "flex",
     justifyContent: "flex-end",
     gap: 10,
+    marginTop: 10,
   },
   modalCancelBtn: {
     padding: "10px 14px",
@@ -520,5 +662,100 @@ const styles = {
     background: "#fff",
     cursor: "pointer",
     fontWeight: 700,
+  },
+  parentAvatarWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: "50%",
+    background: "#eee",
+    overflow: "hidden",
+  },
+  parentAvatarImg: {
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  parentAvatarFallback: {
+    width: "100%",
+    height: "100%",
+    display: "grid",
+    placeItems: "center",
+  },
+  parentAvatarInitials: {
+    fontWeight: 900,
+    color: "#245a52",
+  },
+  avatarEditBtn: {
+    position: "absolute",
+    bottom: -4,
+    right: -12,
+    width: 28,
+    height: 28,
+    borderRadius: 12,
+    background: "#ffffff",
+    border: "1px solid #ddd",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+    zIndex: 5,
+    fontSize: 12,
+    padding: 0,
+  },
+  fieldGroup: {
+    marginTop: 10,
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+  },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: 700,
+    opacity: 0.8,
+  },
+  fieldInput: {
+    border: "1px solid rgba(0,0,0,0.15)",
+    borderRadius: 10,
+    padding: "10px 12px",
+    fontSize: 14,
+    background: "#fff",
+  },
+  inlineError: {
+    color: "crimson",
+    fontSize: 12,
+    fontWeight: 700,
+    marginTop: 8,
+  },
+  previewRow: {
+    marginTop: 8,
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+  previewLabel: {
+    fontSize: 12,
+    fontWeight: 700,
+    opacity: 0.8,
+  },
+  editPreviewImg: {
+    width: 48,
+    height: 48,
+    borderRadius: "50%",
+    objectFit: "cover",
+    border: "1px solid rgba(0,0,0,0.12)",
+  },
+  changeAvatarBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "fit-content",
+    border: "1px solid rgba(0,0,0,0.12)",
+    borderRadius: 10,
+    padding: "8px 14px",
+    background: "#fff",
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: "pointer",
   },
 };

@@ -3,7 +3,8 @@ import { getAccessToken } from "../auth/session";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export async function apiFetch(path, options = {}) {
-  const token = getAccessToken();
+  const raw = getAccessToken();
+  const token = raw?.startsWith("Bearer ") ? raw.slice(7) : raw;
   const headers = {
     ...(options.headers || {}),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -13,7 +14,7 @@ export async function apiFetch(path, options = {}) {
     ...options,
     headers,
   });
-
+  
   return res;
 }
 
@@ -23,6 +24,7 @@ export async function register(email, password, profile) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password, profile }),
   });
+  
 
   const data = await res.json();
 

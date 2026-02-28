@@ -152,4 +152,76 @@ router.get("/dev/parents", requireAuth, async (req, res) => {
   }
 });
 
+// DELETE /api/dev/parents/:parentId
+router.delete("/dev/parents/:parentId", requireAuth, async (req, res) => {
+  try {
+    if (!mustAdmin(res)) return;
+    if (isForbidden(req, res)) return;
+
+    const parentId = String(req.params.parentId || "").trim();
+    if (!parentId) {
+      return res.status(400).json({ ok: false, message: "Invalid parentId" });
+    }
+
+    const { data: existingParent, error: parentLookupErr } = await supabaseAdmin
+      .from("parents")
+      .select("user_id")
+      .eq("user_id", parentId)
+      .maybeSingle();
+
+    if (parentLookupErr) {
+      return res.status(400).json({ ok: false, message: parentLookupErr.message });
+    }
+
+    if (!existingParent?.user_id) {
+      return res.status(404).json({ ok: false, message: "Parent not found" });
+    }
+
+    const { data: children, error: childrenErr } = await supabaseAdmin
+      .from("children")
+      .select("id")
+      .eq("parent_user_id", parentId);
+
+    if (childrenErr) {
+      return res.status(400).json({ ok: false, message: childrenErr.message });
+    }
+
+    const childIds = (children ?? []).map((c) => Number(c.id)).filter(Boolean);
+
+    if (childIds.length > 0) {
+      const { error: entriesDeleteErr } = await supabaseAdmin
+        .from("entries")
+        .delete()
+        .in("child_id", childIds);
+
+      if (entriesDeleteErr) {
+        return res.status(400).json({ ok: false, message: entriesDeleteErr.message });
+      }
+
+      const { error: childrenDeleteErr } = await supabaseAdmin
+        .from("children")
+        .delete()
+        .eq("parent_user_id", parentId);
+
+      if (childrenDeleteErr) {
+        return res.status(400).json({ ok: false, message: childrenDeleteErr.message });
+      }
+    }
+
+    const { error: parentDeleteErr } = await supabaseAdmin.from("parents").delete().eq("user_id", parentId);
+    if (parentDeleteErr) {
+      return res.status(400).json({ ok: false, message: parentDeleteErr.message });
+    }
+
+    const { error: authDeleteErr } = await supabaseAdmin.auth.admin.deleteUser(parentId);
+    if (authDeleteErr) {
+      return res.status(400).json({ ok: false, message: authDeleteErr.message });
+    }
+
+    return res.json({ ok: true, deleted_parent_id: parentId });
+  } catch (e) {
+    return res.status(500).json({ ok: false, message: "Server error" });
+  }
+});
+
 export default router;

@@ -34,6 +34,13 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
       return;
     }
 
+    const email = username.trim().toLowerCase();
+      const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      if (!emailOk) {
+        setError("Please enter a valid email address.");
+        return;
+    }
+
     // REGISTER via backend
     if (mode === "register") {
       if (password !== confirmPassword) {
@@ -42,7 +49,7 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
       }
 
       try {
-        await register(username.trim(), password, {
+        await register(email, password, {
           username: displayName.trim(),
           date_of_birth: dob,
           gender,
@@ -63,7 +70,7 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: username.trim(), // <-- for now we treat Username as Email
+          email,
           password,
         }),
       });
@@ -288,7 +295,7 @@ export default function LoginModal({ onClose, onLoginSuccess }) {
               Registered successfully!
             </p>
             <p className="text-sm mb-6">
-              Please check your email to confirm your account.
+              You can login now.
             </p>
 
             <button

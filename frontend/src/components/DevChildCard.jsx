@@ -1,5 +1,17 @@
 import { styles } from "./devpanel.styles";
-import { CopyPill } from "./devpanel.ui";
+
+function formatDateDdMmmYyyy(input) {
+  if (!input) return "-";
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return "-";
+
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][
+    d.getMonth()
+  ];
+  const year = d.getFullYear();
+  return `${day}${month}${year}`;
+}
 
 export default function DevChildCard({
   child,
@@ -7,9 +19,9 @@ export default function DevChildCard({
   isBusy,
   cachedCount,
   entriesLoading,
+  age,
   onSelect,
   onToggleActive,
-  onCopy,
 }) {
   const c = child;
 
@@ -36,19 +48,11 @@ export default function DevChildCard({
           </div>
         ) : null}
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={styles.childMeta}>id: {c.id}</div>
-          <CopyPill value={c.id} title="Copy child id" onCopy={onCopy} />
-        </div>
-
         <div style={styles.childMeta}>active: {String(c.is_active)}</div>
+        <div style={styles.childMeta}>gender: {c.gender || "-"}</div>
+        <div style={styles.childMeta}>age: {age ?? "-"}</div>
 
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={styles.childMeta}>parent_user_id: {c.parent_user_id}</div>
-          <CopyPill value={c.parent_user_id} title="Copy parent_user_id" onCopy={onCopy} />
-        </div>
-
-        <div style={styles.childMeta}>created_at: {c.created_at || "-"}</div>
+        <div style={styles.childMeta}>account created date - {formatDateDdMmmYyyy(c.created_at)}</div>
       </button>
 
       {c.is_active ? (

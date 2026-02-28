@@ -2,7 +2,7 @@ import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { apiFetch } from "../api/client";
 import { fetchJson } from "./childJournal.api";
 import { styles, modalStyles } from "./childJournal.styles";
-import { useChildProfile, useChildEntries, useEntryEditor } from "./childJournal.hooks";
+import { useChildEntries, useEntryEditor } from "./childJournal.hooks";
 import ChildJournalCalendar from "./ChildJournalCalendar";
 import YearPickerModal from "./YearPickerModal";
 import EntryViewerModal from "./EntryViewerModal";
@@ -23,6 +23,12 @@ import ChildJournalCard from "./ChildJournalCard";
 
 const MAX_BYTES = 1.5 * 1024 * 1024;
 
+function withCacheBust(url) {
+  if (!url) return "";
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}v=${Date.now()}`;
+}
+
 // one highlight color used by calendar + carousel
 const HIGHLIGHT = "#f4b24f";
 
@@ -41,7 +47,24 @@ export default function ChildJournalPage({ child }) {
   const todayText = useMemo(() => formatToday(), []);
   const childId = child?.id;
 
-  const { childAvatarUrl, setChildAvatarUrl } = useChildProfile(childId);
+  const [childProfile, setChildProfile] = useState({
+    name: child?.name || "",
+    gender: child?.gender || "",
+    date_of_birth: child?.date_of_birth || "",
+    avatar_url: child?.avatar_url || "",
+  });
+  const [childAvatarUrl, setChildAvatarUrl] = useState("");
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editAvatarFile, setEditAvatarFile] = useState(null);
+  const [editAvatarPreview, setEditAvatarPreview] = useState("");
+  const [editForm, setEditForm] = useState({
+    name: child?.name || "",
+    gender: child?.gender || "",
+    date_of_birth: child?.date_of_birth || "",
+  });
+
   const { entries, setEntries, loadingEntries } = useChildEntries(childId);
 
   // ===== calendar month/year state (replaces month pills) =====
@@ -183,47 +206,131 @@ export default function ChildJournalPage({ child }) {
     fetchThumbsForEntries(pagedEntries);
   }, [pagedEntries, fetchThumbsForEntries]);
 
-  const handleChildAvatarChange = useCallback(
-    async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
+  const loadChildProfile = useCallback(async () => {
+    if (!childId) return;
+    const res = await apiFetch(`/api/children/${childId}/profile`);
+    const json = await fetchJson(res);
 
-      if (file.size > MAX_BYTES) {
-        alert("Image must be smaller than 1.5MB");
-        e.target.value = "";
+    if (!res.ok || !json.ok) return;
+
+    const nextProfile = {
+      name: json.profile?.name || "",
+      gender: json.profile?.gender || "",
+      date_of_birth: json.profile?.date_of_birth || "",
+      avatar_url: json.profile?.avatar_url || "",
+    };
+
+    setChildProfile(nextProfile);
+    setChildAvatarUrl(withCacheBust(nextProfile.avatar_url));
+  }, [childId]);
+
+  const openEditProfile = useCallback(() => {
+    setEditError("");
+    setEditSaving(false);
+    setEditAvatarFile(null);
+    setEditAvatarPreview("");
+    setEditForm({
+      name: childProfile.name || "",
+      gender: childProfile.gender || "",
+      date_of_birth: childProfile.date_of_birth || "",
+    });
+    setShowEditProfile(true);
+  }, [childProfile.date_of_birth, childProfile.gender, childProfile.name]);
+
+  const closeEditProfile = useCallback(() => {
+    if (editAvatarPreview && editAvatarPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(editAvatarPreview);
+    }
+    setShowEditProfile(false);
+    setEditAvatarFile(null);
+    setEditAvatarPreview("");
+    setEditError("");
+  }, [editAvatarPreview]);
+
+  const onPickEditAvatar = useCallback((e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_BYTES) {
+      setEditError("Image must be smaller than 1.5MB.");
+      e.target.value = "";
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setEditError("File must be an image.");
+      e.target.value = "";
+      return;
+    }
+
+    if (editAvatarPreview && editAvatarPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(editAvatarPreview);
+    }
+
+    const nextPreview = URL.createObjectURL(file);
+    setEditAvatarFile(file);
+    setEditAvatarPreview(nextPreview);
+    setEditError("");
+    e.target.value = "";
+  }, [editAvatarPreview]);
+
+  const saveChildProfile = useCallback(async () => {
+    if (!childId) return;
+
+    const cleanName = String(editForm.name || "").trim();
+    if (!cleanName) {
+      setEditError("Name is required.");
+      return;
+    }
+
+    setEditSaving(true);
+    setEditError("");
+    try {
+      const profileRes = await apiFetch(`/api/children/${childId}/profile`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: cleanName,
+          gender: editForm.gender || null,
+          date_of_birth: editForm.date_of_birth || null,
+        }),
+      });
+      const profileJson = await fetchJson(profileRes);
+      if (!profileRes.ok) {
+        setEditError(profileJson.message || profileJson.error || `Failed (${profileRes.status})`);
         return;
       }
-      if (!file.type.startsWith("image/")) {
-        alert("File must be an image");
-        e.target.value = "";
-        return;
-      }
 
-      try {
+      if (editAvatarFile) {
         const form = new FormData();
-        form.append("avatar", file);
-
-        const res = await apiFetch(`/api/avatar/children/${childId}`, {
+        form.append("avatar", editAvatarFile);
+        const avatarRes = await apiFetch(`/api/avatar/children/${childId}`, {
           method: "POST",
           body: form,
         });
-
-        const json = await fetchJson(res);
-        if (!res.ok) {
-          alert(json.error || json.message || `Upload failed (${res.status})`);
+        const avatarJson = await fetchJson(avatarRes);
+        if (!avatarRes.ok) {
+          setEditError(avatarJson.message || avatarJson.error || `Avatar upload failed (${avatarRes.status})`);
           return;
         }
-
-        setChildAvatarUrl(`${json.avatar_url}?v=${Date.now()}`);
-      } catch (err) {
-        console.error(err);
-        alert("Upload failed");
-      } finally {
-        e.target.value = "";
       }
-    },
-    [childId, setChildAvatarUrl]
-  );
+
+      await loadChildProfile();
+
+      const savedChild = {
+        ...(child || {}),
+        name: cleanName,
+        gender: editForm.gender || "",
+        date_of_birth: editForm.date_of_birth || "",
+      };
+      localStorage.setItem("tt_selectedChild", JSON.stringify(savedChild));
+
+      closeEditProfile();
+    } catch (err) {
+      setEditError(String(err));
+    } finally {
+      setEditSaving(false);
+    }
+  }, [child, childId, closeEditProfile, editAvatarFile, editForm.date_of_birth, editForm.gender, editForm.name, loadChildProfile]);
 
   const handleDeleteEntry = useCallback(
     async (entryId) => {
@@ -368,16 +475,37 @@ export default function ChildJournalPage({ child }) {
     setViewerEntry(null);
   }, []);
 
+  useEffect(() => {
+    setChildProfile({
+      name: child?.name || "",
+      gender: child?.gender || "",
+      date_of_birth: child?.date_of_birth || "",
+      avatar_url: child?.avatar_url || "",
+    });
+  }, [child]);
+
+  useEffect(() => {
+    loadChildProfile();
+  }, [loadChildProfile]);
+
+  useEffect(() => {
+    return () => {
+      if (editAvatarPreview && editAvatarPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(editAvatarPreview);
+      }
+    };
+  }, [editAvatarPreview]);
+
   // title display name
   const displayName = useMemo(() => {
-    const base = capFirst(child?.name ?? "Zack");
+    const base = capFirst(childProfile.name || child?.name || "Zack");
     return base || "Zack";
-  }, [child?.name]);
+  }, [child?.name, childProfile.name]);
 
   // birthday key for current viewYear (child only for now)
   const childBirthdayKey = useMemo(() => {
-    return getBirthdayKeyForYear(child?.date_of_birth, viewYear);
-  }, [child?.date_of_birth, viewYear]);
+    return getBirthdayKeyForYear(childProfile.date_of_birth || child?.date_of_birth, viewYear);
+  }, [child?.date_of_birth, childProfile.date_of_birth, viewYear]);
 
   return (
     <div style={styles.page}>
@@ -397,10 +525,9 @@ export default function ChildJournalPage({ child }) {
                 )}
               </div>
 
-              <label className="tt-btn" style={styles.avatarEditBtn} title="Change avatar">
-                <input type="file" accept="image/*" style={styles.hiddenFileInput} onChange={handleChildAvatarChange} />
-                ✏️
-              </label>
+              <button className="tt-btn" style={styles.avatarEditBtn} title="Edit child profile" onClick={openEditProfile}>
+                {"\u270E"}
+              </button>
             </div>
 
             <h1 style={styles.title}>{displayName}'s Tales</h1>
@@ -492,6 +619,85 @@ export default function ChildJournalPage({ child }) {
           }
         />
       </div>
+
+      {showEditProfile && (
+        <div style={modalStyles.backdrop}>
+          <div style={modalStyles.profileModal} onClick={(e) => e.stopPropagation()}>
+            <div style={modalStyles.profileTitle}>Edit Child Profile</div>
+
+            <div style={modalStyles.profileField}>
+              <label style={modalStyles.profileLabel}>Name</label>
+              <input
+                style={modalStyles.profileInput}
+                value={editForm.name}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Enter child name"
+              />
+            </div>
+
+            <div style={modalStyles.profileField}>
+              <label style={modalStyles.profileLabel}>Gender</label>
+              <select
+                style={modalStyles.profileInput}
+                value={editForm.gender}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, gender: e.target.value }))}
+              >
+                <option value="">Select gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+            </div>
+
+            <div style={modalStyles.profileField}>
+              <label style={modalStyles.profileLabel}>Date of birth</label>
+              <input
+                type="date"
+                style={modalStyles.profileInput}
+                value={editForm.date_of_birth}
+                onChange={(e) => setEditForm((prev) => ({ ...prev, date_of_birth: e.target.value }))}
+              />
+            </div>
+
+            <div style={modalStyles.profileField}>
+              <label style={modalStyles.profileLabel}>Avatar photo</label>
+              <label style={modalStyles.profileChangeBtn}>
+                Change
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  style={{ display: "none" }}
+                  onChange={onPickEditAvatar}
+                />
+              </label>
+            </div>
+
+            <div style={modalStyles.profilePreviewRow}>
+              <div style={modalStyles.profileLabel}>Preview:</div>
+              {editAvatarPreview || childAvatarUrl ? (
+                <img
+                  src={editAvatarPreview || childAvatarUrl}
+                  alt="child avatar preview"
+                  style={modalStyles.profilePreview}
+                  onError={() => setEditAvatarPreview("")}
+                />
+              ) : (
+                <div style={{ opacity: 0.7 }}>No image</div>
+              )}
+            </div>
+
+            {editError ? <div style={modalStyles.profileError}>{editError}</div> : null}
+
+            <div style={modalStyles.profileActions}>
+              <button className="tt-btn" style={modalStyles.secondary} onClick={closeEditProfile} disabled={editSaving}>
+                Cancel
+              </button>
+              <button className="tt-btn" style={modalStyles.primary} onClick={saveChildProfile} disabled={editSaving}>
+                {editSaving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Read-only viewer modal */}
       <EntryViewerModal isOpen={showViewer} entry={viewerEntry} onClose={closeViewer} />
@@ -587,3 +793,4 @@ export default function ChildJournalPage({ child }) {
     </div>
   );
 }
+

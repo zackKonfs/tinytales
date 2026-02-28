@@ -124,7 +124,7 @@ router.get("/children/:childId/profile", requireAuth, async (req, res) => {
 
     const { data: child, error } = await sb
       .from("children")
-      .select("id, parent_user_id, avatar_path")
+      .select("id, parent_user_id, name, date_of_birth, gender, avatar_path")
       .eq("id", childId)
       .maybeSingle();
 
@@ -139,9 +139,69 @@ router.get("/children/:childId/profile", requireAuth, async (req, res) => {
       ? sb.storage.from("avatars").getPublicUrl(child.avatar_path).data.publicUrl
       : "";
 
-    return res.json({ ok: true, profile: { avatar_url } });
+    return res.json({
+      ok: true,
+      profile: {
+        id: child.id,
+        name: child.name || "",
+        gender: child.gender || "",
+        date_of_birth: child.date_of_birth || "",
+        avatar_url,
+      },
+    });
   } catch (e) {
     console.error("GET /api/children failed:", e);
+    return res.status(500).json({ ok: false, message: e?.message || "Server error" });
+  }
+});
+
+// PATCH /api/children/:childId/profile
+router.patch("/children/:childId/profile", requireAuth, async (req, res) => {
+  try {
+    const childId = Number(req.params.childId);
+    if (!Number.isFinite(childId)) {
+      return res.status(400).json({ ok: false, message: "Invalid child id" });
+    }
+
+    const sb = rls(req);
+    const name = String(req.body?.name || "").trim();
+    const gender = String(req.body?.gender || "").trim().toLowerCase();
+    const date_of_birth = String(req.body?.date_of_birth || "").trim();
+
+    if (!name) {
+      return res.status(400).json({ ok: false, message: "Name is required" });
+    }
+
+    const allowedGenders = ["male", "female"];
+    if (gender && !allowedGenders.includes(gender)) {
+      return res.status(400).json({ ok: false, message: "Gender must be male or female" });
+    }
+
+    if (date_of_birth && !/^\d{4}-\d{2}-\d{2}$/.test(date_of_birth)) {
+      return res.status(400).json({ ok: false, message: "date_of_birth must be YYYY-MM-DD" });
+    }
+
+    const { data, error } = await sb
+      .from("children")
+      .update({
+        name,
+        gender: gender || null,
+        date_of_birth: date_of_birth || null,
+      })
+      .eq("id", childId)
+      .eq("parent_user_id", req.user.id)
+      .select("id, parent_user_id, name, date_of_birth, gender, created_at, is_active, avatar_path")
+      .maybeSingle();
+
+    if (error) return res.status(400).json({ ok: false, message: error.message });
+    if (!data) return res.status(404).json({ ok: false, message: "Child not found" });
+
+    const avatar_url = data.avatar_path
+      ? sb.storage.from("avatars").getPublicUrl(data.avatar_path).data.publicUrl
+      : "";
+
+    return res.json({ ok: true, child: { ...data, avatar_url } });
+  } catch (e) {
     return res.status(500).json({ ok: false, message: e?.message || "Server error" });
   }
 });

@@ -15,15 +15,6 @@ export function Section({ title, subTitle, right, children }) {
   );
 }
 
-export function Row({ label, children }) {
-  return (
-    <div style={{ marginTop: 12 }}>
-      <div style={styles.label}>{label}</div>
-      <div>{children}</div>
-    </div>
-  );
-}
-
 export function CopyPill({ value, title = "Copy", onCopy }) {
   return (
     <span

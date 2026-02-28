@@ -11,8 +11,6 @@ import { loadSession, clearSession } from "../auth/session";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../api/client";
 
-//import "../styles/tt-ui.css";
-
 const PAGES = {
   entry: EnterPage,
   child: ChildJournalPage,
@@ -21,13 +19,33 @@ const PAGES = {
   contact: ContactPage,
 };
 
-export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin, username, setUsername }) {
+function toTitleCase(s) {
+  if (!s) return "";
+  return String(s)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+export default function Main({
+  checkPage,
+  setCheckPage,
+  showLogin,
+  setShowLogin,
+  username,
+  setUsername,
+}) {
   const Page = PAGES[checkPage] ?? EnterPage;
 
   const [showAccountPicker, setShowAccountPicker] = useState(false);
   const [isBooting, setIsBooting] = useState(true);
   const [selectedChild, setSelectedChild] = useState(null);
   const [childrenList, setChildrenList] = useState([]);
+
+  // ✅ NEW: separate display name (not email)
+  const [parentDisplayName, setParentDisplayName] = useState("");
 
   function go(page) {
     setCheckPage(page);
@@ -38,7 +56,30 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
     localStorage.removeItem("tt_selectedChild");
     setSelectedChild(null);
     setUsername("");
+    setParentDisplayName("");
     setCheckPage("entry");
+  }
+
+  async function loadParentDisplayNameFallback() {
+    try {
+      const res = await apiFetch("/api/parent/profile");
+      const json = await res.json().catch(() => ({}));
+
+      if (res.ok && json.ok) {
+        const nameFromDb = json.profile?.username || "";
+        if (nameFromDb) {
+          setParentDisplayName(toTitleCase(nameFromDb));
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    // fallback: use email prefix if no profile name
+    const email = username || "";
+    const prefix = email.includes("@") ? email.split("@")[0] : "";
+    setParentDisplayName(toTitleCase(prefix) || "Parent");
   }
 
   const pageProps = {
@@ -59,7 +100,7 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
     },
 
     parent: {
-      parentName: username || "Parent",
+      parentName: parentDisplayName || "Parent",
       parentEmail: username || "",
       onLogout: logoutEverywhere,
       onSelectChild: (child) => {
@@ -70,13 +111,20 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
     },
   };
 
-  function handleLoginSuccess(payload) {
+  async function handleLoginSuccess(payload) {
     setUsername(payload.user.email);
     setShowLogin(false);
     setShowAccountPicker(true);
     setCheckPage("entry");
+
+    // ✅ load name after login
+    // (apiFetch uses token, so this should work)
+    setTimeout(() => {
+      loadParentDisplayNameFallback();
+    }, 0);
   }
 
+  // ✅ Boot auth
   useEffect(() => {
     async function bootAuth() {
       const saved = loadSession();
@@ -92,6 +140,7 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
         if (!res.ok) {
           clearSession();
           setUsername("");
+          setParentDisplayName("");
           setCheckPage("entry");
           setIsBooting(false);
           return;
@@ -121,6 +170,7 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
       } catch {
         clearSession();
         setUsername("");
+        setParentDisplayName("");
         setCheckPage("entry");
         setIsBooting(false);
       }
@@ -129,11 +179,20 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
     bootAuth();
   }, [setCheckPage, setUsername]);
 
+  // ✅ AFTER username is ready, load profile display name
+  useEffect(() => {
+    if (!username) return;
+    loadParentDisplayNameFallback();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [username]);
+
+  // remember last page
   useEffect(() => {
     if (isBooting) return;
     localStorage.setItem("tt_lastPage", checkPage);
   }, [checkPage, isBooting]);
 
+  // load children for picker when picker opens
   useEffect(() => {
     if (!showAccountPicker) return;
 
@@ -152,6 +211,7 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
         }
       } catch {
         if (!alive) return;
+        setChildrenList([]);
       }
     }
 
@@ -166,7 +226,7 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
     return <div style={{ padding: 24, opacity: 0.7 }}>Loading...</div>;
   }
 
-  const showHeader = checkPage !== "entry"; // keep entry page clean
+  const showHeader = checkPage !== "entry";
 
   return (
     <main>
@@ -187,7 +247,7 @@ export default function Main({ checkPage, setCheckPage, showLogin, setShowLogin,
 
       <AccountPickerModal
         open={showAccountPicker}
-        parentName="Zack (Parent)"
+        parentName={`${parentDisplayName || "Parent"} (Parent)`}
         children={childrenList}
         onSelectParent={() => {
           setShowAccountPicker(false);

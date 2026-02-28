@@ -1,12 +1,17 @@
 export default function AccountPickerModal({
   open,
-  parentName = "Zack",
+  parentName = "",
   children = [],
   onSelectParent,
   onSelectChild,
   onClose,
 }) {
   if (!open) return null;
+
+  const formattedParentName =
+    parentName
+      ? parentName.charAt(0).toUpperCase() + parentName.slice(1)
+      : "";
 
   return (
     <div style={styles.backdrop}>
@@ -20,7 +25,7 @@ export default function AccountPickerModal({
         <div style={styles.section}>
           <div style={styles.label}>Parent</div>
           <button style={styles.primaryBtn} onClick={onSelectParent}>
-            {parentName}
+            {formattedParentName}
           </button>
         </div>
 

@@ -14,7 +14,7 @@ export default function ChildJournalCard({
 }) {
   const title = (entry?.title ?? "").trim() || "Untitled";
   const titleInitial = title[0]?.toUpperCase() || "📷";
-  const savedAtText = formatEntryDateTime(entry?.entry_date || entry?.created_at);
+  const savedAtText = formatEntryDateTime(entry?.created_at || entry?.entry_date);
 
   return (
     <div

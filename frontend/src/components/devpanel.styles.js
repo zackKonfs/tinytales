@@ -160,6 +160,7 @@ export const styles = {
   childItemActive: { outline: "3px solid rgba(36, 90, 82, 0.25)" },
   childName: { fontSize: 16, fontWeight: 900, color: "#333", marginBottom: 6 },
   childMeta: { fontSize: 12, opacity: 0.75, lineHeight: 1.35 },
+  parentCardWrap: { position: "relative" },
 
   copyLink: {
     marginLeft: 6,
@@ -225,5 +226,17 @@ export const styles = {
     fontSize: 13,
     borderBottom: "1px solid rgba(0,0,0,0.06)",
     verticalAlign: "top",
+  },
+  entryInactiveRow: {
+    background: "rgba(0,0,0,0.08)",
+  },
+  inlineCheckbox: {
+    display: "flex",
+    gap: 8,
+    alignItems: "center",
+    fontSize: 12,
+    fontWeight: 800,
+    opacity: 0.8,
+    userSelect: "none",
   },
 };

@@ -20,14 +20,28 @@ export function formatToday() {
   return `Today is ${day}${suffix} ${month} ${year}, ${weekday}`;
 }
 
-export function formatEntryDateTime(isoString) {
+export function formatEntryDateTime(input) {
+  // Accept either an entry object OR an ISO string
+  const isoString =
+    typeof input === "string"
+      ? input
+      : input?.created_at || input?.createdAt || input?.entry_date || input?.entryDate || "";
+
   if (!isoString) return "";
+
+  // If it's a DATE-only string (YYYY-MM-DD), show only date (no fake time)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(isoString)) {
+    const [y, m, d] = isoString.split("-");
+    return `${d}/${m}/${y}`;
+  }
+
   const d = new Date(isoString);
   if (Number.isNaN(d.getTime())) return "";
+
   return d.toLocaleString("en-SG", {
     year: "numeric",
-    month: "numeric",
-    day: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
