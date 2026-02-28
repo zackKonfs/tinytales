@@ -11,7 +11,7 @@ router.get("/parent/profile", requireAuth, async (req, res) => {
     .from("parents")
     .select("avatar_path, username")
     .eq("user_id", req.user.id)
-    .single();
+    .maybeSingle();
 
   if (error) return res.status(400).json({ ok: false, error: error.message });
 
@@ -23,7 +23,8 @@ router.get("/parent/profile", requireAuth, async (req, res) => {
   return res.json({
     ok: true,
     profile: {
-      ...data,
+      avatar_path: data?.avatar_path || null,
+      username: data?.username || "",
       avatar_url,
     },
   });

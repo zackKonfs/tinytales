@@ -182,22 +182,40 @@ router.patch("/:entryId", requireAuth, async (req, res) => {
 
 // List entries by child
 router.get("/children/:id/entries", requireAuth, async (req, res) => {
-  const childId = Number(req.params.id);
-  if (!childId) return res.status(400).json({ ok: false, message: "Invalid child id" });
+  try {
+    const childId = Number(req.params.id);
+    if (!childId) return res.status(400).json({ ok: false, message: "Invalid child id" });
 
-  const own = await requireChildOwned(req, childId);
-  if (!own.ok) return res.status(own.status).json({ ok: false, message: own.message });
+    const own = await requireChildOwned(req, childId);
+    if (!own.ok) return res.status(own.status).json({ ok: false, message: own.message });
 
-  const sb = rls(req);
-  const { data: entries, error: entriesErr } = await sb
-    .from("entries")
-    .select("id, title, content, entry_date, created_at, photo_paths")
-    .eq("child_id", childId)
-    .eq("is_active", true)
-    .order("entry_date", { ascending: false });
+    const sb = rls(req);
 
-  if (entriesErr) return res.status(500).json({ ok: false, message: entriesErr.message });
-  return res.json({ ok: true, entries: entries ?? [] });
+    let result;
+    try {
+      result = await sb
+        .from("entries")
+        .select("id, title, content, entry_date, created_at, photo_paths")
+        .eq("child_id", childId)
+        .eq("is_active", true)
+        .order("entry_date", { ascending: false });
+    } catch (e) {
+      console.error("SUPABASE THROW (entries list):", e);
+      return res.status(500).json({ ok: false, message: `Supabase threw: ${String(e?.message || e)}` });
+    }
+
+    const { data: entries, error: entriesErr } = result;
+
+    if (entriesErr) {
+      console.error("SUPABASE ERROR (entries list):", entriesErr);
+      return res.status(500).json({ ok: false, message: entriesErr.message });
+    }
+
+    return res.json({ ok: true, entries: entries ?? [] });
+  } catch (e) {
+    console.error("LIST ENTRIES CRASH:", e);
+    return res.status(500).json({ ok: false, message: String(e?.message || e) });
+  }
 });
 
 // Overwrite photo_paths array

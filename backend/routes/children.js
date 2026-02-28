@@ -1,7 +1,6 @@
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
 import { requireAuth } from "../middleware/requireAuth.js";
-import { supabaseAdmin } from "../supabaseClient.js";
 
 const router = express.Router();
 
@@ -13,21 +12,6 @@ function rls(req) {
     global: { headers: { Authorization: `Bearer ${req.accessToken}` } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
-}
-
-function mustAdmin(req, res) {
-  if (!supabaseAdmin) {
-    res.status(500).json({ ok: false, message: "supabaseAdmin missing (SERVICE ROLE KEY not set)" });
-    return false;
-  }
-
-  const email = (req.user?.email || "").toLowerCase();
-  if (email !== "zack.xu@hotmail.com") {
-    res.status(403).json({ ok: false, message: "Forbidden" });
-    return false;
-  }
-
-  return true;
 }
 
 // GET /api/children
@@ -52,15 +36,15 @@ router.get("/children", requireAuth, async (req, res) => {
     });
 
     return res.json({ ok: true, children });
-  } catch (e) {
+  } catch {
     return res.status(500).json({ ok: false, message: "Server error" });
   }
 });
 
-// POST /api/children
+// POST /api/children  ✅ allow any logged-in parent
 router.post("/children", requireAuth, async (req, res) => {
   try {
-    if (!mustAdmin(req, res)) return;
+    const sb = rls(req);
 
     const name = (req.body?.name ?? "").trim();
     const date_of_birth = req.body?.date_of_birth;
@@ -70,7 +54,7 @@ router.post("/children", requireAuth, async (req, res) => {
       return res.status(400).json({ ok: false, message: "Missing required fields." });
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await sb
       .from("children")
       .insert([
         {
@@ -81,21 +65,25 @@ router.post("/children", requireAuth, async (req, res) => {
           is_active: true,
         },
       ])
-      .select("id, name, date_of_birth, gender, created_at, is_active")
+      .select("id, name, date_of_birth, gender, created_at, is_active, avatar_path, parent_user_id")
       .single();
 
     if (error) return res.status(400).json({ ok: false, message: error.message });
 
-    return res.status(201).json({ ok: true, child: data });
-  } catch (e) {
+    const avatar_url = data?.avatar_path
+      ? sb.storage.from("avatars").getPublicUrl(data.avatar_path).data.publicUrl
+      : "";
+
+    return res.status(201).json({ ok: true, child: { ...data, avatar_url } });
+  } catch {
     return res.status(500).json({ ok: false, message: "Server error" });
   }
 });
 
-// PATCH /api/children/:id/active
+// PATCH /api/children/:id/active ✅ allow any logged-in parent (but only their own rows)
 router.patch("/children/:id/active", requireAuth, async (req, res) => {
   try {
-    if (!mustAdmin(req, res)) return;
+    const sb = rls(req);
 
     const childId = Number(req.params.id);
     if (!Number.isFinite(childId)) {
@@ -107,7 +95,7 @@ router.patch("/children/:id/active", requireAuth, async (req, res) => {
       return res.status(400).json({ ok: false, message: "is_active must be boolean" });
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await sb
       .from("children")
       .update({ is_active })
       .eq("id", childId)
@@ -119,7 +107,7 @@ router.patch("/children/:id/active", requireAuth, async (req, res) => {
     if (!data) return res.status(404).json({ ok: false, message: "Child not found" });
 
     return res.json({ ok: true, child: data });
-  } catch (e) {
+  } catch {
     return res.status(500).json({ ok: false, message: "Server error" });
   }
 });
@@ -152,8 +140,9 @@ router.get("/children/:childId/profile", requireAuth, async (req, res) => {
       : "";
 
     return res.json({ ok: true, profile: { avatar_url } });
-  } catch (err) {
-    return res.status(500).json({ ok: false, message: "Server error" });
+  } catch (e) {
+    console.error("GET /api/children failed:", e);
+    return res.status(500).json({ ok: false, message: e?.message || "Server error" });
   }
 });
 
