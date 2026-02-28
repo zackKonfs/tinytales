@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api/client";
 import CreateChildModal from "./CreateChildModal";
+import EnterPageDecor from "./EnterPageDecor";
 
 function toTitleCase(s) {
   if (!s) return "";
@@ -53,6 +54,9 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
 
   const [confirmChild, setConfirmChild] = useState(null);
   const [successMsg, setSuccessMsg] = useState("");
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1200
+  );
 
   const isSuperAdmin = useMemo(() => parentEmail === "zack.xu@hotmail.com", [parentEmail]);
 
@@ -233,12 +237,34 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
     };
   }, [editAvatarPreview]);
 
+  useEffect(() => {
+    function onResize() {
+      setViewportWidth(window.innerWidth);
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const isMobile = viewportWidth <= 768;
+  const isTablet = viewportWidth > 768 && viewportWidth <= 1024;
+  const gridColumns = isMobile ? 1 : isTablet ? 2 : 3;
+  const thumbSize = isMobile ? 146 : 180;
+
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
-        <header style={styles.header}>
+    <div style={{ ...styles.page, padding: isMobile ? "20px 12px" : styles.page.padding }}>
+      <EnterPageDecor variant="journal" />
+
+      <div style={{ ...styles.container, width: isMobile ? "min(1100px, 96vw)" : styles.container.width }}>
+        <header
+          style={{
+            ...styles.header,
+            flexDirection: isMobile ? "column" : "row",
+            alignItems: isMobile ? "flex-start" : "center",
+            marginBottom: isMobile ? 16 : styles.header.marginBottom,
+          }}
+        >
           <div>
-            <h1 style={styles.title}>Parent Account</h1>
+            <h1 style={{ ...styles.title, fontSize: isMobile ? 34 : styles.title.fontSize }}>Parent Account</h1>
 
             <div style={{ position: "relative", width: 68, height: 68 }}>
               <div style={styles.parentAvatarWrap}>
@@ -261,10 +287,12 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
               </button>
             </div>
 
-            <div style={styles.greeting}>Hello, {displayName} (Parent)</div>
+            <div style={{ ...styles.greeting, fontSize: isMobile ? 20 : styles.greeting.fontSize }}>
+              Hello, {displayName} (Parent)
+            </div>
           </div>
 
-          <div style={styles.actions}>
+          <div style={{ ...styles.actions, marginTop: isMobile ? 6 : styles.actions.marginTop }}>
             {isSuperAdmin ? (
               <button style={styles.devBtn} onClick={() => navigate("/dev")}>
                 Dev Panel
@@ -274,8 +302,8 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
         </header>
       </div>
 
-      <div style={styles.container}>
-        <div style={styles.panel}>
+      <div style={{ ...styles.container, width: isMobile ? "min(1100px, 96vw)" : styles.container.width }}>
+        <div style={{ ...styles.panel, padding: isMobile ? "16px 12px 18px" : styles.panel.padding }}>
           <button style={styles.panelCreateBtn} onClick={() => setShowCreateChild(true)}>
             Create Account
           </button>
@@ -284,10 +312,10 @@ export default function ParentAccount({ parentName, onSelectChild, parentEmail }
             <div style={{ opacity: 0.7, padding: "12px 0" }}>No children account yet!</div>
           )}
 
-          <section style={styles.grid}>
+          <section style={{ ...styles.grid, gridTemplateColumns: `repeat(${gridColumns}, minmax(0, 1fr))` }}>
             {childrenList.map((c) => (
               <div key={c.id} style={styles.card} onClick={() => onSelectChild?.(c)}>
-                <div style={styles.thumb}>
+                <div style={{ ...styles.thumb, width: thumbSize, height: thumbSize }}>
                   {c.avatar_url ? (
                     <img
                       src={c.avatar_url}
@@ -476,6 +504,9 @@ const styles = {
   page: {
     minHeight: "100vh",
     padding: "36px 28px",
+    position: "relative",
+    overflow: "hidden",
+    isolation: "isolate",
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-start",
@@ -564,6 +595,8 @@ const styles = {
     width: "min(1100px, 92vw)",
     marginLeft: "auto",
     marginRight: "auto",
+    position: "relative",
+    zIndex: 1,
   },
   deleteBtn: {
     position: "absolute",

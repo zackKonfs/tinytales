@@ -2,6 +2,48 @@
   padding: 0rem 0 0rem;
 }
 
+.tt-enter-btn {
+  position: relative;
+  transform: translateY(0) scale(1);
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+}
+
+.tt-enter-btn:hover {
+  transform: translateY(-1px) scale(1.015);
+  box-shadow: 0 5px 0 rgba(74, 53, 35, 0.35), 0 8px 12px rgba(74, 53, 35, 0.16);
+  filter: saturate(1.02);
+  animation: enter-btn-bob 900ms ease-in-out infinite;
+}
+
+.tt-enter-btn:active {
+  transform: translateY(1px) scale(0.99);
+  box-shadow: 0 3px 0 rgba(74, 53, 35, 0.35), 0 4px 6px rgba(74, 53, 35, 0.12);
+  animation: enter-btn-press 120ms ease-out;
+}
+
+.tt-enter-btn:focus-visible {
+  outline: 3px solid rgba(36, 90, 82, 0.35);
+  outline-offset: 3px;
+}
+
+@keyframes enter-btn-bob {
+  0%, 100% {
+    transform: translateY(-1px) scale(1.015);
+  }
+  50% {
+    transform: translateY(-2px) scale(1.02);
+  }
+}
+
+@keyframes enter-btn-press {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    transform: translateY(1px) scale(0.99);
+  }
+}
+
 .tt-title {
   font-family: "Baloo 2", cursive;
   font-size: clamp(8rem, 11vw, 7rem);

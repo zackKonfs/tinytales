@@ -72,6 +72,54 @@
 .page-decor--enter .decor--snail { display: block; bottom: 35px; left: 26%; width: 70px; z-index: 3; }
 .page-decor--enter .decor--bird { display: block; bottom: 50px; right: 20%; width: 120px; }
 
+/* ===== CHILD JOURNAL variant ===== */
+.page-decor--journal .decor--moon { display: block; top: 20px; left: 39%; width: 120px; }
+.page-decor--journal .decor--cloud1 { display: block; top: 120px; left: 34%; width: 140px; }
+.page-decor--journal .decor--cloud2 { display: block; top: 30px; right: 8%; width: 180px; }
+.page-decor--journal .decor--cloud3 { display: block; top: 140px; left: 8%; width: 100px; }
+.page-decor--journal .decor--star1 { display: block; top: 100px; left: 49%; width: 36px; }
+.page-decor--journal .decor--star2 { display: block; top: 150px; right: 18%; width: 36px; }
+.page-decor--journal .decor--star3 { display: block; top: 90px; right: 35%; width: 36px; }
+.page-decor--journal .decor--star4 { display: block; top: 24px; right: 25%; width: 36px; }
+.page-decor--journal .decor--star5 { display: block; top: 84px; left: 14%; width: 34px; }
+
+.page-decor--journal .decor--boygirl { display: none; }
+
+/* Push side animals away from center calendar and move them higher */
+.page-decor--journal .decor--rabbit { display: block; bottom: 160px; left: 8%; width: 110px; }
+.page-decor--journal .decor--snail { display: block; bottom: 150px; left: 18%; width: 70px; z-index: 3; }
+.page-decor--journal .decor--bird { display: block; bottom: 160px; right: 8%; width: 120px; }
+
+/* Keep supporting ground details under side animals */
+.page-decor--journal .decor--grass1 { display: block; bottom: 150px; left: 4%; width: 60px; }
+.page-decor--journal .decor--stone1 { display: block; bottom: 160px; right: 20%; width: 56px; z-index: 1; }
+
+/* Extra right grass tucked behind the right stone */
+.page-decor--journal .decor--grass3 { display: block; bottom: 180px; right: 23%; width: 42px; z-index: 0; }
+
+/* Small left stone above the snail */
+.page-decor--journal .decor--stone2 { display: block; bottom: 175px; left: 13.5%; width: 26px; }
+
+/* ===== CHILD JOURNAL (restored) variant ===== */
+.page-decor--journal-child .decor--moon { display: block; top: 20px; left: 12%; width: 120px; }
+.page-decor--journal-child .decor--cloud1 { display: block; top: 120px; left: 7%; width: 140px; }
+.page-decor--journal-child .decor--cloud2 { display: block; top: 30px; right: 8%; width: 180px; }
+.page-decor--journal-child .decor--star1 { display: block; top: 100px; left: 25%; width: 36px; }
+.page-decor--journal-child .decor--star2 { display: block; top: 150px; right: 18%; width: 36px; }
+.page-decor--journal-child .decor--star3 { display: block; top: 90px; right: 35%; width: 36px; }
+.page-decor--journal-child .decor--star4 { display: block; top: 0px; right: 25%; width: 36px; }
+
+.page-decor--journal-child .decor--boygirl { display: none; }
+
+.page-decor--journal-child .decor--rabbit { display: block; bottom: 430px; left: 8%; width: 110px; }
+.page-decor--journal-child .decor--snail { display: block; bottom: 420px; left: 18%; width: 70px; z-index: 3; }
+.page-decor--journal-child .decor--bird { display: block; bottom: 430px; right: 8%; width: 120px; }
+
+.page-decor--journal-child .decor--grass1 { display: block; bottom: 420px; left: 4%; width: 60px; }
+.page-decor--journal-child .decor--stone1 { display: block; bottom: 430px; right: 20%; width: 56px; z-index: 1; }
+.page-decor--journal-child .decor--grass3 { display: block; bottom: 450px; right: 23%; width: 42px; z-index: 0; }
+.page-decor--journal-child .decor--stone2 { display: block; bottom: 445px; left: 13.5%; width: 26px; }
+
 /* ===== CONTACT variant ===== */
 .page-decor--contact .decor--moon { display:block; top:60px; left:15%; width:120px; }
 
@@ -93,6 +141,18 @@
 .page-decor--contact .decor--stone3 { display:block; bottom:80px; right:18%; width:80px; }
 
 .page-decor--contact .decor--snail { display:block; bottom:60px; right:21%; width:90px; transform:scaleX(-1); }
+/* contact page: hide animals + grass + stone */
+.page-decor--contact .decor--rabbit,
+.page-decor--contact .decor--bird,
+.page-decor--contact .decor--snail,
+.page-decor--contact .decor--grass1,
+.page-decor--contact .decor--grass2,
+.page-decor--contact .decor--grass3,
+.page-decor--contact .decor--stone1,
+.page-decor--contact .decor--stone2,
+.page-decor--contact .decor--stone3 {
+  display: none;
+}
 
 /* ===== ABOUT variant ===== */
 .page-decor--about .decor--moon { display:block; top:60px; left:12%; width:120px; }
@@ -119,7 +179,7 @@
 
 
 /* keep your existing responsive choice */
-@media (max-width: 992px) {
+@media (max-width: 768px) {
   .page-decor--enter .decor--moon,
   .page-decor--enter .decor--cloud1,
   .page-decor--enter .decor--cloud2,
@@ -132,6 +192,36 @@
   .page-decor--enter .decor--rabbit,
   .page-decor--enter .decor--snail,
   .page-decor--enter .decor--bird,
+  .page-decor--journal .decor--moon,
+  .page-decor--journal .decor--cloud1,
+  .page-decor--journal .decor--cloud2,
+  .page-decor--journal .decor--cloud3,
+  .page-decor--journal .decor--star1,
+  .page-decor--journal .decor--star2,
+  .page-decor--journal .decor--star3,
+  .page-decor--journal .decor--star4,
+  .page-decor--journal .decor--star5,
+  .page-decor--journal .decor--grass1,
+  .page-decor--journal .decor--grass3,
+  .page-decor--journal .decor--stone1,
+  .page-decor--journal .decor--stone2,
+  .page-decor--journal .decor--rabbit,
+  .page-decor--journal .decor--snail,
+  .page-decor--journal .decor--bird,
+  .page-decor--journal-child .decor--moon,
+  .page-decor--journal-child .decor--cloud1,
+  .page-decor--journal-child .decor--cloud2,
+  .page-decor--journal-child .decor--star1,
+  .page-decor--journal-child .decor--star2,
+  .page-decor--journal-child .decor--star3,
+  .page-decor--journal-child .decor--star4,
+  .page-decor--journal-child .decor--grass1,
+  .page-decor--journal-child .decor--grass3,
+  .page-decor--journal-child .decor--stone1,
+  .page-decor--journal-child .decor--stone2,
+  .page-decor--journal-child .decor--rabbit,
+  .page-decor--journal-child .decor--snail,
+  .page-decor--journal-child .decor--bird,
   .page-decor--tales,
   .page-decor--about,
   .page-decor--contact,

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import logo from "../assets/Logo.png";
 
 
@@ -12,6 +12,18 @@ import logo from "../assets/Logo.png";
 export default function AppHeader({ rightActions, onGoAbout, onGoContact, onGoParent, onLogout }) {
   const showParent = typeof onGoParent === "function";
   const showLogout = typeof onLogout === "function";
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1200
+  );
+  const isMobile = viewportWidth <= 768;
+
+  useEffect(() => {
+    function onResize() {
+      setViewportWidth(window.innerWidth);
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const btnBase = useMemo(
     () => ({
@@ -21,10 +33,11 @@ export default function AppHeader({ rightActions, onGoAbout, onGoContact, onGoPa
       background: "rgba(255,255,255,0.75)",
       cursor: "pointer",
       fontWeight: 800,
+      fontSize: isMobile ? 14 : 18,
       color: "#245a52",
       transition: "transform 120ms ease, filter 120ms ease",
     }),
-    []
+    [isMobile]
   );
 
   const dangerBtn = useMemo(
@@ -36,9 +49,9 @@ export default function AppHeader({ rightActions, onGoAbout, onGoContact, onGoPa
   );
 
   return (
-    <div style={ui.wrap}>
-      <div style={ui.left}>
-        <div style={ui.logo} title="TinyTales">
+    <div style={{ ...ui.wrap, ...(isMobile ? ui.wrapMobile : {}) }}>
+      <div style={{ ...ui.left, ...(isMobile ? ui.leftMobile : {}) }}>
+        <div style={{ ...ui.logo, ...(isMobile ? ui.logoMobile : {}) }} title="TinyTales">
             <img
             src={logo}
             alt="TinyTales"
@@ -52,7 +65,7 @@ export default function AppHeader({ rightActions, onGoAbout, onGoContact, onGoPa
         </div>
         </div>
 
-      <div style={ui.right}>
+      <div style={{ ...ui.right, ...(isMobile ? ui.rightMobile : {}) }}>
         <button className="tt-btn" style={btnBase} onClick={onGoAbout}>
           About
         </button>
@@ -119,5 +132,28 @@ logo: {
     gap: 10,
     flex: "1 1 auto",
     minWidth: 0,
+  },
+  wrapMobile: {
+    width: "calc(100vw - 12px)",
+    margin: "0 6px 10px",
+    padding: "10px 12px",
+    borderRadius: 14,
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 10,
+  },
+  leftMobile: {
+    justifyContent: "center",
+    width: "100%",
+  },
+  logoMobile: {
+    width: "clamp(180px, 62vw, 260px)",
+    height: 56,
+  },
+  rightMobile: {
+    justifyContent: "center",
+    flexWrap: "wrap",
+    width: "100%",
+    gap: 8,
   },
 };

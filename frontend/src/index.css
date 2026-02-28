@@ -80,6 +80,30 @@ body {
   box-shadow: 0 2px 0 rgba(74, 53, 35, 0.2);
 }
 
+/* ---------- GLOBAL BUTTON MOTION (non-devpanel) ---------- */
+button {
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+button:not(:disabled):hover {
+  transform: translateY(-1px) scale(1.015);
+  filter: brightness(0.96) saturate(1.02);
+}
+
+button:not(:disabled):active {
+  transform: translateY(1px) scale(0.99);
+  filter: brightness(0.93) saturate(1.02);
+}
+
+/* Keep devpanel button behavior unchanged */
+.tt-no-btn-anim button,
+.tt-no-btn-anim button:hover,
+.tt-no-btn-anim button:active {
+  transform: none !important;
+  filter: none !important;
+  transition: none !important;
+}
+
 /* Footer (global) */
 .tt-footer {
   padding: 1rem 0 1.5rem;

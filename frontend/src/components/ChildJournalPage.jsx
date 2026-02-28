@@ -6,6 +6,7 @@ import { useChildEntries, useEntryEditor } from "./childJournal.hooks";
 import ChildJournalCalendar from "./ChildJournalCalendar";
 import YearPickerModal from "./YearPickerModal";
 import EntryViewerModal from "./EntryViewerModal";
+import EnterPageDecor from "./EnterPageDecor";
 import {
   formatToday,
   parseDateKey,
@@ -42,7 +43,21 @@ const { MIN_YEAR, MAX_YEAR } = YEAR_RANGE;
    Component
 ========================= */
 export default function ChildJournalPage({ child }) {
-  const CARDS_PER_PAGE = 3;
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth : 1200
+  );
+  const isMobile = viewportWidth <= 768;
+  const cardsPerPage = isMobile ? 1 : 3;
+  const cardWidth = isMobile ? Math.min(260, Math.max(210, viewportWidth - 120)) : 180;
+  const responsiveStyles = useMemo(() => {
+    if (!isMobile) return styles;
+    return {
+      ...styles,
+      card: { ...styles.card, width: cardWidth },
+      cardPlaceholder: { ...styles.cardPlaceholder, width: cardWidth },
+      thumb: { ...styles.thumb, height: 150 },
+    };
+  }, [isMobile, cardWidth]);
 
   const todayText = useMemo(() => formatToday(), []);
   const childId = child?.id;
@@ -156,10 +171,10 @@ export default function ChildJournalPage({ child }) {
   }, [viewYear, viewMonthIndex]);
 
   const pagedEntries = useMemo(() => {
-    const start = Math.max(0, Math.min(carouselStart, Math.max(0, monthEntries.length - CARDS_PER_PAGE)));
-    const end = start + CARDS_PER_PAGE;
+    const start = Math.max(0, Math.min(carouselStart, Math.max(0, monthEntries.length - cardsPerPage)));
+    const end = start + cardsPerPage;
     return monthEntries.slice(start, end);
-  }, [monthEntries, carouselStart]);
+  }, [monthEntries, carouselStart, cardsPerPage]);
 
 
 
@@ -408,13 +423,13 @@ export default function ChildJournalPage({ child }) {
       // put it in the middle slot (index 1) if possible
       let start = idx - 1;
       if (start < 0) start = 0;
-      const maxStart = Math.max(0, monthEntries.length - CARDS_PER_PAGE);
+      const maxStart = Math.max(0, monthEntries.length - cardsPerPage);
       if (start > maxStart) start = maxStart;
 
       setCarouselStart(start);
       setSelectedEntryId(entryId);
     },
-    [monthEntries]
+    [monthEntries, cardsPerPage]
   );
 
   const onSelectCalendarDate = useCallback(
@@ -489,6 +504,14 @@ export default function ChildJournalPage({ child }) {
   }, [loadChildProfile]);
 
   useEffect(() => {
+    function onResize() {
+      setViewportWidth(window.innerWidth);
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (editAvatarPreview && editAvatarPreview.startsWith("blob:")) {
         URL.revokeObjectURL(editAvatarPreview);
@@ -508,7 +531,9 @@ export default function ChildJournalPage({ child }) {
   }, [child?.date_of_birth, childProfile.date_of_birth, viewYear]);
 
   return (
-    <div style={styles.page}>
+    <div style={{ ...styles.page, padding: isMobile ? "20px 10px" : styles.page.padding }}>
+      <EnterPageDecor variant="journal-child" />
+
       <div style={styles.container}>
         {/* Header */}
         <div style={styles.header}>
@@ -530,7 +555,7 @@ export default function ChildJournalPage({ child }) {
               </button>
             </div>
 
-            <h1 style={styles.title}>{displayName}'s Tales</h1>
+            <h1 style={{ ...styles.title, fontSize: isMobile ? 40 : styles.title.fontSize }}>{displayName}'s Tales</h1>
           </div>
 
           <button className="tt-btn" style={styles.newEntryBtn} onClick={editor.openNewEntry}>
@@ -541,26 +566,31 @@ export default function ChildJournalPage({ child }) {
         </div>
 
         {/* Top carousel */}
-        <div style={styles.topCarousel}>
+        <div style={{ ...styles.topCarousel, gap: isMobile ? 8 : styles.topCarousel.gap }}>
           <button
             className="tt-arrow"
             style={styles.arrowBtn}
             aria-label="Previous entries"
-            onClick={() => setCarouselStart((s) => Math.max(0, s - CARDS_PER_PAGE))}
+            onClick={() => setCarouselStart((s) => Math.max(0, s - cardsPerPage))}
           >
             ‹
           </button>
 
-          <div style={styles.cardsRow}>
+          <div
+            style={{
+              ...styles.cardsRow,
+              width: cardWidth * cardsPerPage + 16 * Math.max(0, cardsPerPage - 1),
+            }}
+          >
             {loadingEntries ? (
               <div style={{ opacity: 0.6 }}>Loading entries...</div>
             ) : monthEntries.length === 0 ? (
               <div style={{ opacity: 0.6 }}>No entry yet.</div>
             ) : (
-              [...Array(CARDS_PER_PAGE)].map((_, index) => {
+              [...Array(cardsPerPage)].map((_, index) => {
                 const e = pagedEntries[index];
 
-                if (!e) return <div key={`empty-${index}`} style={styles.cardPlaceholder} />;
+                if (!e) return <div key={`empty-${index}`} style={responsiveStyles.cardPlaceholder} />;
 
                 return (
                 <ChildJournalCard
@@ -568,7 +598,7 @@ export default function ChildJournalPage({ child }) {
                     entry={e}
                     isActive={selectedEntryId === e.id}
                     thumbUrl={thumbUrlByEntryId[e.id] || ""}
-                    styles={styles}
+                    styles={responsiveStyles}
                     onOpenViewer={openViewer}
                     onEdit={editor.openEditEntry}
                     onDelete={handleDeleteEntry}
@@ -584,8 +614,8 @@ export default function ChildJournalPage({ child }) {
             aria-label="Next entries"
             onClick={() =>
               setCarouselStart((s) => {
-                const maxStart = Math.max(0, monthEntries.length - CARDS_PER_PAGE);
-                return Math.min(maxStart, s + CARDS_PER_PAGE);
+                const maxStart = Math.max(0, monthEntries.length - cardsPerPage);
+                return Math.min(maxStart, s + cardsPerPage);
               })
             }
           >

@@ -12,7 +12,7 @@ export default function EnterPage({ setLogin }) {
         </section>
 
         <div className="mt-10">
-            <button className="tt-cta-btn" type="button" onClick={setLogin}>
+            <button className="tt-cta-btn tt-enter-btn" type="button" onClick={setLogin}>
               ENTER
             </button>
         </div>

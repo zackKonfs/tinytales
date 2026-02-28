@@ -50,18 +50,18 @@ const ui = {
   page: {
     minHeight: "calc(100vh - 40px)",
     position: "relative",
-    padding: "20px 16px 40px",
+    padding: "10px 16px 24px",
   },
   decorWrap: {
     position: "relative",
-    height: 360,
+    height: 250,
     maxWidth: 960,
     margin: "0 auto",
     overflow: "hidden",
   },
   card: {
     width: "min(820px, 92vw)",
-    margin: "-20px auto 0",
+    margin: "0 auto 0",
     borderRadius: 22,
     background: "rgba(255,255,255,0.70)",
     border: "1px solid rgba(0,0,0,0.12)",

@@ -22,6 +22,7 @@ const DECOR = [
   { src: star2, className: "decor decor--star decor--star2 animate-star-rotate" },
   { src: star1, className: "decor decor--star decor--star3 animate-cloud-float" },
   { src: star2, className: "decor decor--star decor--star4 animate-cloud-float" },
+  { src: star1, className: "decor decor--star decor--star5 animate-star-rotate" },
 
   { src: grass, className: "decor decor--grass decor--grass1" },
   { src: grass, className: "decor decor--grass decor--grass2" },

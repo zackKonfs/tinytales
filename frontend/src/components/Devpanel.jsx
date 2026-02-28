@@ -33,7 +33,7 @@ export default function DevPanel({ username }) {
   }
 
   return (
-    <div style={styles.page}>
+    <div className="tt-no-btn-anim" style={styles.page}>
       <div style={styles.container}>
         <header style={styles.header}>
           <div>

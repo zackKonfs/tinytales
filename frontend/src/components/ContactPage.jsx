@@ -10,19 +10,31 @@ export default function ContactPage({ onGoParent }) {
       <div style={ui.card}>
         <h1 style={ui.h1}>Contact</h1>
 
-        <p style={ui.p}>For now, you can reach us at:</p>
+        <p style={ui.p}>We would love to hear from you. Reach out through any of the channels below.</p>
 
         <div style={ui.box}>
           <div style={ui.row}>
             <span style={ui.label}>Email</span> hello@tinytales.app
           </div>
           <div style={ui.row}>
+            <span style={ui.label}>Phone</span> +1 (415) 555-0183
+          </div>
+          <div style={ui.row}>
+            <span style={ui.label}>WhatsApp</span> +1 (415) 555-0139
+          </div>
+          <div style={ui.row}>
             <span style={ui.label}>Instagram</span> @tinytales
+          </div>
+          <div style={ui.row}>
+            <span style={ui.label}>Address</span> 128 Storybook Lane, Suite 204, San Mateo, CA 94401
+          </div>
+          <div style={ui.row}>
+            <span style={ui.label}>Hours</span> Mon-Fri, 9:00 AM - 6:00 PM (PT)
           </div>
         </div>
 
         <p style={ui.pSmall}>
-          (Replace with real details later.)
+          Demo contact details for UI preview. Typical reply time: within 1 business day.
         </p>
 
         {onGoParent && (
@@ -42,17 +54,17 @@ const ui = {
   page: {
     minHeight: "calc(100vh - 40px)",
     position: "relative",
-    padding: "20px 16px 40px",
+    padding: "10px 16px 24px",
   },
   decorWrap: {
     position: "relative",
-    height: 360,
+    height: 250,
     maxWidth: 960,
     margin: "0 auto",
   },
   card: {
     width: "min(820px, 92vw)",
-    margin: "18px auto 0",
+    margin: "0 auto 0",
     borderRadius: 22,
     background: "rgba(255,255,255,0.70)",
     border: "1px solid rgba(0,0,0,0.12)",
