@@ -1,9 +1,7 @@
 import { apiFetch } from "../api/client";
+import { parseJsonSafe } from "../api/json";
 
-export async function fetchJson(res) {
-  const json = await res.json().catch(() => ({}));
-  return json;
-}
+export const fetchJson = parseJsonSafe;
 
 /**
  * IMPORTANT:
@@ -31,7 +29,7 @@ export async function saveEntryCore({ editingEntry, childId, title, content }) {
         child_id: childId,
         title,
         content,
-        entry_date: todayLocalDateKey(), // ✅ local date
+        entry_date: todayLocalDateKey(), // local date
       };
 
   const res = await apiFetch(url, {

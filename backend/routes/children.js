@@ -1,23 +1,13 @@
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { supabaseForReq } from "../supabaseRequest.js";
 
 const router = express.Router();
-
-function rls(req) {
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${req.accessToken}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
 
 // GET /api/children
 router.get("/children", requireAuth, async (req, res) => {
   try {
-    const sb = rls(req);
+    const sb = supabaseForReq(req);
 
     const { data, error } = await sb
       .from("children")
@@ -41,10 +31,10 @@ router.get("/children", requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/children  ✅ allow any logged-in parent
+// POST /api/children (allow any logged-in parent)
 router.post("/children", requireAuth, async (req, res) => {
   try {
-    const sb = rls(req);
+    const sb = supabaseForReq(req);
 
     const name = (req.body?.name ?? "").trim();
     const date_of_birth = req.body?.date_of_birth;
@@ -80,10 +70,10 @@ router.post("/children", requireAuth, async (req, res) => {
   }
 });
 
-// PATCH /api/children/:id/active ✅ allow any logged-in parent (but only their own rows)
+// PATCH /api/children/:id/active (allow any logged-in parent, but only their own rows)
 router.patch("/children/:id/active", requireAuth, async (req, res) => {
   try {
-    const sb = rls(req);
+    const sb = supabaseForReq(req);
 
     const childId = Number(req.params.id);
     if (!Number.isFinite(childId)) {
@@ -120,7 +110,7 @@ router.get("/children/:childId/profile", requireAuth, async (req, res) => {
       return res.status(400).json({ ok: false, message: "Invalid child id" });
     }
 
-    const sb = rls(req);
+    const sb = supabaseForReq(req);
 
     const { data: child, error } = await sb
       .from("children")
@@ -163,7 +153,7 @@ router.patch("/children/:childId/profile", requireAuth, async (req, res) => {
       return res.status(400).json({ ok: false, message: "Invalid child id" });
     }
 
-    const sb = rls(req);
+    const sb = supabaseForReq(req);
     const name = String(req.body?.name || "").trim();
     const gender = String(req.body?.gender || "").trim().toLowerCase();
     const date_of_birth = String(req.body?.date_of_birth || "").trim();

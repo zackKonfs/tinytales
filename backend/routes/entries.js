@@ -1,23 +1,12 @@
 import express from "express";
 import multer from "multer";
-import { createClient } from "@supabase/supabase-js";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { supabaseForReq } from "../supabaseRequest.js";
 import { supabaseAdmin } from "../supabaseClient.js";
 
 const router = express.Router();
 
 // ---------- helpers ----------
-function rls(req) {
-  // Use the verified token set by requireAuth
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: `Bearer ${req.accessToken}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-}
-
 function mustAdmin(res) {
   if (!supabaseAdmin) {
     res.status(500).json({ ok: false, message: "supabaseAdmin missing (SERVICE ROLE KEY not set)" });
@@ -33,7 +22,7 @@ function safeDate(entry_date) {
 }
 
 async function requireChildOwned(req, childId) {
-  const sb = rls(req);
+  const sb = supabaseForReq(req);
   const userId = req.user.id;
 
   const { data, error } = await sb
@@ -50,7 +39,7 @@ async function requireChildOwned(req, childId) {
 }
 
 async function requireEntryOwned(req, entryId) {
-  const sb = rls(req);
+  const sb = supabaseForReq(req);
   const userId = req.user.id;
 
   const { data: entryRow, error: entryErr } = await sb
@@ -137,7 +126,7 @@ router.put("/:entryId", requireAuth, async (req, res) => {
   if (!own.ok) return res.status(own.status).json({ ok: false, message: own.message });
   if (!mustAdmin(res)) return;
 
-  // ✅ IMPORTANT FIX:
+  // IMPORTANT:
   // Only update entry_date if frontend actually provided it.
   // This prevents old entries (eg Jan) from jumping to "today" (Feb) after editing.
   const patch = { title: t, content: c };
@@ -189,7 +178,7 @@ router.get("/children/:id/entries", requireAuth, async (req, res) => {
     const own = await requireChildOwned(req, childId);
     if (!own.ok) return res.status(own.status).json({ ok: false, message: own.message });
 
-    const sb = rls(req);
+    const sb = supabaseForReq(req);
 
     let result;
     try {

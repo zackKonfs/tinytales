@@ -1,8 +1,7 @@
 import { apiFetch } from "../api/client";
+import { parseJsonSafe } from "../api/json";
 
-export async function safeJson(res) {
-  return res.json().catch(() => ({}));
-}
+export const safeJson = parseJsonSafe;
 
 export async function fetchParents() {
   const endpoint = "/api/dev/parents";
